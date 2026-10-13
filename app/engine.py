@@ -132,11 +132,21 @@ def classer(
     finally:
         _places.release()
 
-    # L'apercu sert a VERIFIER un groupe a l'oeil, pas a tout afficher : on prend un
-    # echantillon par couple groupe x univers plutot que les N premieres lignes, sinon un
-    # petit groupe disparait derriere un gros.
-    apercu, _ = urlcat.pick_panel(rows, args)
-    apercu.sort(key=lambda r: (r["groupe"], r["univers"], r["url"]))
+    # L'apercu sert a VERIFIER un groupe a l'oeil, pas a tout afficher. Deux contraintes :
+    # chaque couple groupe x univers doit rester represente (sinon un petit groupe disparait
+    # derriere un gros), et le tri par nombre doit rester honnete. On garde donc les N URLs
+    # LES PLUS VUES de chaque couple, pas un tirage aleatoire : trier par nombre un
+    # echantillon tire au hasard donnerait « les plus frequentes parmi celles qu'on a tirees »,
+    # ce qui n'est pas la meme chose. Quand toutes les occurrences valent 1 (export de crawl),
+    # cela degenere en une tranche deterministe, triee par URL.
+    paniers: dict[tuple[str, str], list[dict]] = {}
+    for ligne in rows:
+        paniers.setdefault((ligne["groupe"], ligne["univers"]), []).append(ligne)
+    apercu = []
+    for panier in paniers.values():
+        panier.sort(key=lambda r: (-r["nombre"], r["url"]))
+        apercu.extend(panier[:apercu_par_couple])
+    apercu.sort(key=lambda r: (r["groupe"], r["univers"], -r["nombre"], r["url"]))
 
     # Une regle qui ne gagne jamais n'apparait PAS dans stats : il faut comparer aux regles
     # declarees. Sans ca, le compteur restait a zero et l'encadre ne s'affichait jamais.
@@ -157,6 +167,27 @@ def classer(
         apercu=apercu,
         apercu_par_couple=apercu_par_couple,
     )
+
+
+def filtrer(rows: list[dict], groupe: str | None = None, univers: str | None = None) -> list[dict]:
+    """Restreint a un groupe et/ou un univers. Porte sur la TOTALITE des lignes, pas sur
+    l'apercu : telecharger « ce que je regarde » doit rendre toutes les URLs de ce groupe,
+    pas seulement l'echantillon affiche."""
+    sortie = rows
+    if groupe:
+        sortie = [r for r in sortie if r["groupe"] == groupe]
+    if univers:
+        sortie = [r for r in sortie if r["univers"] == univers]
+    return sortie
+
+
+def nom_fichier(groupe: str | None = None, univers: str | None = None) -> str:
+    morceaux = [m for m in ("classement", groupe, univers) if m]
+    propre = "-".join(
+        "".join(c if (c.isalnum() or c in "-_") else "-" for c in m).strip("-")
+        for m in morceaux
+    )
+    return (propre or "classement") + ".csv"
 
 
 def csv_bytes(rows: list[dict]) -> bytes:

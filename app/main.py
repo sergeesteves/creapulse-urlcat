@@ -150,6 +150,8 @@ def classer(
     url_column: str = Form(""),
     ignore_dom: str = Form(""),
     sortie: str = Form("apercu"),
+    filtre_groupe: str = Form(""),
+    filtre_univers: str = Form(""),
 ):
     """Route synchrone volontairement : FastAPI l'execute dans un thread, et le classement
     est CPU-bound. La concurrence reelle est bornee par le semaphore du moteur."""
@@ -192,10 +194,15 @@ def classer(
              resultat.total_urls, resultat.total_occurrences, len(resultat.groupes))
 
     if sortie == "csv":
+        g = filtre_groupe.strip() or None
+        u = filtre_univers.strip() or None
+        lignes = engine.filtrer(resultat.rows, g, u)
+        nom = engine.nom_fichier(g, u)
+        log.info("csv groupe=%s univers=%s lignes=%s", g or "-", u or "-", len(lignes))
         return Response(
-            engine.csv_bytes(resultat.rows),
+            engine.csv_bytes(lignes),
             media_type="text/csv; charset=utf-8",
-            headers={"Content-Disposition": 'attachment; filename="classement.csv"'},
+            headers={"Content-Disposition": 'attachment; filename="%s"' % nom},
         )
 
     return _rendu(request, r=resultat, **saisie)

@@ -372,3 +372,84 @@ def test_le_jeu_dexemple_declenche_bien_les_deux_diagnostics():
     groupes = {l.nom: l.uniques for l in resultat.groupes}
     univers = {l.nom: l.uniques for l in resultat.univers}
     assert univers["catalogue"] > max(groupes.values())
+
+
+# --------------------------------------------------------------------------- #
+# Export filtre et composition de l'apercu
+# --------------------------------------------------------------------------- #
+
+def test_lexport_filtre_depasse_lapercu():
+    """Le piege : l'apercu est un echantillon. « Telecharger ces URLs » doit rendre toutes
+    les URLs du groupe, pas seulement celles affichees. Verifie au niveau du moteur, ou la
+    difference est observable (le plafond anonyme des tests est volontairement a 10)."""
+    lignes = ["https://exemple.fr/blog/%d" % i for i in range(60)]
+    lignes.append("https://exemple.fr/contact")
+    resultat = engine.classer(REGLES, "\n".join(lignes), plafond=1000, apercu_par_couple=10)
+
+    dans_apercu = [r for r in resultat.apercu if r["groupe"] == "blog"]
+    a_exporter = engine.filtrer(resultat.rows, groupe="blog")
+    assert len(dans_apercu) == 10
+    assert len(a_exporter) == 60, "l'export porte sur la totalite du groupe, pas sur l'apercu"
+    assert all(r["groupe"] == "blog" for r in a_exporter)
+
+
+def test_le_csv_respecte_le_filtre(client):
+    rep = client.post(f"{PREFIXE}/classer", data={
+        "regles": REGLES, "urls": URLS, "ignore_dom": "1",
+        "sortie": "csv", "filtre_groupe": "blog",
+    })
+    assert rep.status_code == 200
+    texte = rep.content.decode("utf-8-sig")
+    corps = [l for l in texte.strip().splitlines()[1:] if l]
+    assert corps, "le filtre ne doit pas vider l'export"
+    assert all(",blog," in l for l in corps)
+    assert "contact" not in texte          # presente dans le jeu, mais hors du filtre
+
+
+def test_le_nom_du_fichier_porte_le_filtre(client):
+    rep = client.post(f"{PREFIXE}/classer", data={
+        "regles": REGLES, "urls": URLS, "ignore_dom": "1",
+        "sortie": "csv", "filtre_groupe": "blog",
+    })
+    assert 'filename="classement-blog.csv"' in rep.headers["content-disposition"]
+
+    rep = client.post(f"{PREFIXE}/classer", data={
+        "regles": REGLES, "urls": URLS, "ignore_dom": "1", "sortie": "csv",
+    })
+    assert 'filename="classement.csv"' in rep.headers["content-disposition"]
+
+
+def test_export_sans_filtre_rend_tout(client):
+    rep = client.post(f"{PREFIXE}/classer", data={
+        "regles": REGLES, "urls": URLS, "ignore_dom": "1", "sortie": "csv",
+    })
+    lignes = rep.content.decode("utf-8-sig").strip().splitlines()
+    assert len(lignes) == 1 + 3   # en-tete + les 3 URLs uniques du jeu de test
+
+
+def test_apercu_garde_les_urls_les_plus_vues(client):
+    """Trier par nombre un tirage aleatoire donnerait « les plus frequentes parmi celles
+    tirees au hasard ». L'apercu garde donc les plus vues de chaque couple, ce qui rend
+    le tri par nombre honnete."""
+    lignes = []
+    for i in range(30):
+        lignes.append("https://exemple.fr/blog/rare-%d" % i)       # 1 occurrence
+    lignes += ["https://exemple.fr/blog/vedette"] * 25             # 25 occurrences
+    lignes += ["https://exemple.fr/blog/second"] * 12              # 12 occurrences
+
+    resultat = engine.classer(REGLES, "\n".join(lignes), plafond=1000, apercu_par_couple=5)
+    urls = [r["url"] for r in resultat.apercu if r["groupe"] == "blog"]
+    assert "https://exemple.fr/blog/vedette" in urls
+    assert "https://exemple.fr/blog/second" in urls
+    nombres = [r["nombre"] for r in resultat.apercu if r["groupe"] == "blog"]
+    assert nombres == sorted(nombres, reverse=True)
+
+
+def test_boutons_et_entetes_triables_presents(client):
+    rep = client.post(f"{PREFIXE}/classer",
+                      data={"regles": REGLES, "urls": URLS, "sortie": "apercu", "ignore_dom": "1"})
+    assert 'id="f-export"' in rep.text                 # export la ou se porte le regard
+    assert 'form="form-classer"' in rep.text           # sans dupliquer regles et URLs
+    assert 'name="filtre_groupe"' in rep.text
+    assert 'data-tri="nombre"' in rep.text             # colonne Nb triable
+    assert 'class="triable"' in rep.text

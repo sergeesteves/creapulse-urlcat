@@ -17,32 +17,52 @@
   <span class="aide" id="exemple-etat" role="status"></span>
 </p>
 
-<form method="post" action="{{ prefixe }}/classer#resultats" class="pile">
+<form method="post" action="{{ prefixe }}/classer#resultats" class="pile" id="form-classer">
+  <input type="hidden" name="filtre_groupe" id="h-groupe" value="">
+  <input type="hidden" name="filtre_univers" id="h-univers" value="">
   <div class="champ">
-    <label for="regles">Fichier de règles</label>
+    <div class="entete-champ">
+      <label for="regles">Fichier de règles</label>
+      <label class="fichier">
+        <input type="file" id="fichier-regles" accept=".txt,.conf,.ini,.cfg,text/plain">
+        <span class="bouton quiet">Ouvrir un fichier…</span>
+      </label>
+    </div>
     <p class="aide">Sections <code>[crawl:categories]</code> et <code>[crawl:univers]</code>.
-      Corrigez-le et reclassez autant de fois qu'il faut — une bonne catégorisation s'obtient
-      rarement du premier coup.</p>
+      Ouvrez votre fichier ou collez-le ici, puis corrigez et reclassez autant de fois qu'il
+      faut — une bonne catégorisation s'obtient rarement du premier coup.</p>
     <textarea id="regles" name="regles" rows="14" spellcheck="false"
       placeholder="[crawl:categories]&#10;&#10;@names&#10;100	site&#10;&#10;@&#10;path /blog/*&#10;name blog&#10;parent-id	100" required>{{ regles or "" }}</textarea>
   </div>
 
   <div class="champ">
-    <label for="urls">Liste d'URLs</label>
-    <p class="aide">Une URL par ligne — ou un CSV, en nommant la colonne ci-dessous.
+    <div class="entete-champ">
+      <label for="urls">Liste d'URLs</label>
+      <label class="fichier">
+        <input type="file" id="fichier-urls" accept=".txt,.csv,.tsv,text/plain,text/csv">
+        <span class="bouton quiet">Ouvrir un fichier…</span>
+      </label>
+    </div>
+    <p class="aide">Ouvrez un fichier <code>.txt</code> (une URL par ligne) ou un
+      <code>.csv</code> — export Screaming Frog, Search Console, log… S'il s'agit d'un CSV,
+      la colonne contenant les URLs vous sera proposée juste en dessous.
       Jusqu'à <strong>{{ "{:,}".format(plafond).replace(",", " ") }} URLs uniques</strong>
       {% if membre %}(plafond membre){% else %}par passage{% endif %}.</p>
     <textarea id="urls" name="urls" rows="{% if r %}6{% else %}12{% endif %}" spellcheck="false"
       placeholder="https://exemple.fr/blog/mon-article&#10;https://exemple.fr/produit/42" required>{{ urls or "" }}</textarea>
   </div>
 
-  <details class="options" {% if url_column %}open{% endif %}>
+  <div class="champ colonne-csv" id="bloc-colonne" {% if not url_column %}hidden{% endif %}>
+    <label for="url_column">Colonne contenant les URLs</label>
+    <p class="aide" id="colonne-aide">Un CSV a été détecté : choisissez la colonne à classer.</p>
+    <select id="url_column" name="url_column">
+      <option value="">— une URL par ligne, pas un CSV —</option>
+      {% if url_column %}<option value="{{ url_column }}" selected>{{ url_column }}</option>{% endif %}
+    </select>
+  </div>
+
+  <details class="options">
     <summary>Options</summary>
-    <div class="champ">
-      <label for="url_column">Colonne CSV contenant les URLs</label>
-      <input type="text" id="url_column" name="url_column" value="{{ url_column or '' }}"
-             placeholder="laisser vide si une URL par ligne">
-    </div>
     <label class="case">
       <input type="checkbox" name="ignore_dom" value="1" {% if ignore_dom %}checked{% endif %}>
       Ignorer la directive <code>dom</code> (règles écrites pour un autre hôte)
@@ -53,7 +73,6 @@
     <button type="submit" name="sortie" value="apercu" class="bouton cta">
       {% if r %}Reclasser{% else %}Classer les URLs{% endif %}
     </button>
-    <button type="submit" name="sortie" value="csv" class="bouton secondary">Télécharger le CSV</button>
     {% if not r %}
     <span class="aide">L'exemple contient une règle éclipsée et une règle sans objet,
       pour que le diagnostic ait quelque chose à dire.</span>
@@ -156,11 +175,13 @@
     <input type="search" id="f-texte" placeholder="fragment d'URL ou de motif">
   </label>
   <button type="button" class="bouton quiet" id="f-reset">Tout afficher</button>
+  <button type="submit" form="form-classer" name="sortie" value="csv"
+          class="bouton secondary" id="f-export">Exporter le classement (CSV)</button>
   <span class="aide" id="f-compte" role="status"></span>
 </div>
 
-<table id="table-urls">
-  <thead><tr><th>URL</th><th>Groupe</th><th>Univers</th><th class="n">Nb</th><th>Motif gagnant</th><th class="n">Ligne</th></tr></thead>
+<table id="table-urls" class="triable">
+  <thead><tr><th data-tri="texte" data-col="0">URL</th><th data-tri="texte" data-col="1">Groupe</th><th data-tri="texte" data-col="2">Univers</th><th data-tri="nombre" data-col="3" class="n">Nb</th><th data-tri="texte" data-col="4">Motif gagnant</th><th data-tri="nombre" data-col="5" class="n">Ligne</th></tr></thead>
   <tbody>
   {% for ligne in r.apercu %}
     <tr data-groupe="{{ ligne.groupe }}" data-univers="{{ ligne.univers }}">
@@ -178,9 +199,11 @@
 <p class="aide">
   {{ r.apercu | length }} ligne(s) dans l'aperçu, sur {{ "{:,}".format(r.total_urls).replace(",", " ") }} URLs uniques.
   {% if r.apercu | length < r.total_urls %}
-  C'est un <strong>échantillon stratifié</strong> : jusqu'à {{ r.apercu_par_couple }} URLs par couple
-  groupe × univers, pour qu'un petit groupe reste visible derrière un gros. Les comptages des
-  tableaux ci-dessus et le CSV, eux, portent sur la totalité.
+  C'est un <strong>échantillon stratifié</strong> : les {{ r.apercu_par_couple }} URLs les plus vues
+  de chaque couple groupe × univers, pour qu'un petit groupe reste visible derrière un gros et que
+  le tri par nombre reste honnête. Les comptages des tableaux ci-dessus et le CSV, eux, portent sur
+  la totalité — « Télécharger ces URLs » exporte <strong>toutes</strong> les URLs du filtre actif,
+  pas seulement celles affichées.
   {% endif %}
 </p>
 
@@ -211,6 +234,68 @@ document.getElementById('charger-exemple').addEventListener('click', async funct
   this.disabled = false;
 });
 
+// --- Ouvrir un fichier : on le lit DANS LE NAVIGATEUR et on le verse dans la zone de
+// texte. La zone reste la source unique, donc reclasser et conserver la saisie apres une
+// erreur continuent de marcher sans rien envoyer de plus au serveur.
+(function () {
+  function brancher(idFichier, idZone, apres) {
+    var champ = document.getElementById(idFichier);
+    var zone = document.getElementById(idZone);
+    if (!champ || !zone) return;
+    champ.addEventListener('change', function () {
+      var f = champ.files && champ.files[0];
+      if (!f) return;
+      var lecteur = new FileReader();
+      lecteur.onload = function () {
+        zone.value = String(lecteur.result || '');
+        if (apres) apres(zone.value);
+      };
+      lecteur.onerror = function () {
+        zone.value = '';
+        alert('Lecture impossible : ' + f.name);
+      };
+      lecteur.readAsText(f, 'utf-8');
+    });
+  }
+
+  var bloc = document.getElementById('bloc-colonne');
+  var select = document.getElementById('url_column');
+
+  // Detecte un en-tete CSV et propose ses colonnes, plutot que de faire taper un nom a
+  // l'aveugle. Une seule colonne, ou aucun separateur : ce n'est pas un CSV.
+  function detecterColonnes(texte) {
+    if (!bloc || !select) return;
+    var premiere = (texte || '').split('\n', 1)[0].replace(/\r$/, '');
+    var sep = (premiere.split(';').length > premiere.split(',').length) ? ';' : ',';
+    var champs = premiere.split(sep).map(function (c) { return c.trim().replace(/^"|"$/g, ''); });
+    var estCsv = champs.length > 1 && champs.every(function (c) { return c && c.indexOf(' ') < 40; })
+                 && premiere.indexOf('http') !== 0;
+    if (!estCsv) {
+      bloc.hidden = true;
+      select.innerHTML = '<option value="">— une URL par ligne, pas un CSV —</option>';
+      return;
+    }
+    var devine = champs.find(function (c) { return /url|adresse|address|loc|page/i.test(c); });
+    var html = '<option value="">— une URL par ligne, pas un CSV —</option>';
+    for (var i = 0; i < champs.length; i++) {
+      html += '<option value="' + champs[i].replace(/"/g, '&quot;') + '"'
+            + (champs[i] === devine ? ' selected' : '') + '>' + champs[i] + '</option>';
+    }
+    select.innerHTML = html;
+    bloc.hidden = false;
+  }
+
+  brancher('fichier-regles', 'regles', null);
+  brancher('fichier-urls', 'urls', detecterColonnes);
+
+  // Coller un CSV a la main doit donner le meme confort que l'ouvrir.
+  var zoneUrls = document.getElementById('urls');
+  if (zoneUrls) {
+    zoneUrls.addEventListener('change', function () { detecterColonnes(zoneUrls.value); });
+    if (zoneUrls.value) detecterColonnes(zoneUrls.value);
+  }
+})();
+
 // --- Filtres du tableau d'URLs. Tout se fait dans la page : on verifie un groupe a l'oeil,
 // on corrige les regles juste au-dessus, on reclasse. Pas d'aller-retour serveur pour filtrer.
 (function () {
@@ -239,11 +324,54 @@ document.getElementById('charger-exemple').addEventListener('click', async funct
       : '';
   }
 
-  fg.addEventListener('change', appliquer);
-  fu.addEventListener('change', appliquer);
+  // Les champs caches suivent les filtres : « Telecharger ces URLs » exporte le filtre actif,
+  // en repassant par le serveur pour avoir la TOTALITE des lignes, pas seulement l'apercu.
+  var hg = document.getElementById('h-groupe');
+  var hu = document.getElementById('h-univers');
+  var exp = document.getElementById('f-export');
+  function synchroniser() {
+    if (hg) hg.value = fg.value;
+    if (hu) hu.value = fu.value;
+    if (exp) {
+      exp.textContent = (fg.value || fu.value)
+        ? 'Exporter ce filtre (CSV)'
+        : 'Exporter le classement (CSV)';
+    }
+  }
+
+  fg.addEventListener('change', function () { appliquer(); synchroniser(); });
+  fu.addEventListener('change', function () { appliquer(); synchroniser(); });
   ft.addEventListener('input', appliquer);
+
+  // Tri par colonne. Le premier clic sur « Nb » ou « Ligne » trie DECROISSANT : sur un nombre
+  // d'occurrences, ce qu'on cherche c'est le haut du classement, pas le bas.
+  var entetes = table.tHead.rows[0].cells;
+  var sensActuel = {};
+  for (var k = 0; k < entetes.length; k++) {
+    (function (th) {
+      if (!th.dataset.tri) return;
+      th.addEventListener('click', function () {
+        var col = +th.dataset.col;
+        var numerique = th.dataset.tri === 'nombre';
+        var sens = sensActuel[col] === 'asc' ? 'desc' : 'asc';
+        if (sensActuel[col] === undefined) sens = numerique ? 'desc' : 'asc';
+        sensActuel = {}; sensActuel[col] = sens;
+        var signe = sens === 'asc' ? 1 : -1;
+        var triees = lignes.slice().sort(function (a, b) {
+          var va = a.cells[col].textContent.trim();
+          var vb = b.cells[col].textContent.trim();
+          if (numerique) return signe * ((parseFloat(va) || 0) - (parseFloat(vb) || 0));
+          return signe * va.localeCompare(vb, 'fr');
+        });
+        var corps = table.tBodies[0];
+        for (var m = 0; m < triees.length; m++) corps.appendChild(triees[m]);
+        for (var n = 0; n < entetes.length; n++) entetes[n].removeAttribute('aria-sort');
+        th.setAttribute('aria-sort', sens === 'asc' ? 'ascending' : 'descending');
+      });
+    })(entetes[k]);
+  }
   document.getElementById('f-reset').addEventListener('click', function () {
-    fg.value = ''; fu.value = ''; ft.value = ''; appliquer();
+    fg.value = ''; fu.value = ''; ft.value = ''; appliquer(); synchroniser();
   });
 
   // Cliquer une ligne des tableaux de synthese pose le filtre correspondant.
@@ -255,6 +383,7 @@ document.getElementById('charger-exemple').addEventListener('click', async funct
       cible.value = (cible.value === this.dataset.valeur) ? '' : this.dataset.valeur;
       autre.value = '';
       appliquer();
+      synchroniser();
       table.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }

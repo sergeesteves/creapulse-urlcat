@@ -223,3 +223,59 @@ table.cliquable tbody tr:hover td { background: var(--cp-surface-subtle); }
 .rapport-replie summary { font-weight: 600; cursor: pointer; }
 .rapport-replie .aide { margin: 12px 0 8px; }
 .rapport-replie .rapport { margin: 0; background: #ffffff; }
+
+/* En-tetes triables : le curseur et la fleche disent que c'est cliquable. */
+table.triable thead th[data-tri] { cursor: pointer; user-select: none; white-space: nowrap; }
+table.triable thead th[data-tri]:hover { color: var(--cp-primary-fill); }
+table.triable thead th[data-tri]::after {
+  content: " \2195";
+  opacity: 0.35;
+  font-weight: 400;
+}
+table.triable thead th[aria-sort="ascending"]::after { content: " \2191"; opacity: 1; }
+table.triable thead th[aria-sort="descending"]::after { content: " \2193"; opacity: 1; }
+
+/* --- Ouvrir un fichier ------------------------------------------------------- */
+
+.entete-champ {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+/* Le vrai input file est masque : on clique le bouton qui l'enveloppe. */
+label.fichier { cursor: pointer; }
+label.fichier input[type="file"] {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%);
+}
+label.fichier .bouton { font-size: 13px; padding: 6px 12px; }
+/* Le focus clavier doit se voir sur le bouton, pas sur l'input masque. */
+label.fichier input[type="file"]:focus-visible + .bouton {
+  outline: 2px solid var(--cp-primary-fill);
+  outline-offset: 2px;
+}
+
+.colonne-csv {
+  background: var(--cp-surface-subtle);
+  border: 1px solid var(--cp-rule);
+  border-left: 4px solid var(--cp-primary);
+  border-radius: var(--r-box);
+  padding: 12px 14px;
+}
+.colonne-csv select {
+  font: 400 14px var(--pile);
+  color: var(--cp-ink);
+  background: #ffffff;
+  border: 1px solid var(--cp-rule);
+  border-radius: var(--r-btn);
+  padding: 8px 10px;
+  max-width: 420px;
+}
+.colonne-csv select:focus-visible {
+  outline: 2px solid var(--cp-primary-fill);
+  outline-offset: 2px;
+}
