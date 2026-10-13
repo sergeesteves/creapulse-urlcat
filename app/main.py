@@ -88,6 +88,16 @@ def _contexte(request: Request, **extra) -> dict:
     return base
 
 
+def _rendu(request: Request, status_code: int = 200, **extra) -> Response:
+    """Une seule page : formulaire en haut (toujours), resultats dessous s'il y en a.
+
+    L'outil se travaille par iterations — on corrige les regles, on reclasse, on
+    recommence — donc le fichier de regles ne doit jamais disparaitre, erreur comprise.
+    """
+    return gabarits.TemplateResponse(
+        request, "index.html", _contexte(request, **extra), status_code=status_code)
+
+
 def _erreur(request: Request, code: int, titre: str, detail: str) -> Response:
     if request.headers.get("accept", "").startswith("application/json"):
         return JSONResponse({"erreur": titre, "detail": detail}, status_code=code)
@@ -129,7 +139,7 @@ async def accueil(request: Request):
             log.info("jeton refuse ou expire — poursuite en anonyme")
         return reponse
 
-    return gabarits.TemplateResponse(request, "index.html", _contexte(request))
+    return _rendu(request)
 
 
 @app.post("/classer")
@@ -144,9 +154,16 @@ def classer(
     """Route synchrone volontairement : FastAPI l'execute dans un thread, et le classement
     est CPU-bound. La concurrence reelle est bornee par le semaphore du moteur."""
     regles, urls = regles.strip(), urls.strip()
+    saisie = {"regles": regles, "urls": urls, "url_column": url_column, "ignore_dom": ignore_dom}
+
+    def refus(code: int, titre: str, detail: str) -> Response:
+        """Rend la page avec les champs intacts : perdre un fichier de regles en cours
+        de mise au point serait le pire defaut possible pour cet outil."""
+        return _rendu(request, status_code=code, erreur_titre=titre, erreur_detail=detail, **saisie)
+
     if not regles or not urls:
-        return _erreur(request, 400, "Il manque quelque chose",
-                       "Il faut un fichier de regles ET une liste d'URLs.")
+        return refus(400, "Il manque quelque chose",
+                     "Il faut un fichier de regles ET une liste d'URLs.")
 
     plafond = settings.plafond(bool(_membre(request)))
     try:
@@ -157,20 +174,19 @@ def classer(
             ignore_dom=bool(ignore_dom),
         )
     except engine.TropDUrls as exc:
-        return _erreur(
-            request, 413, "Trop d'URLs pour la version en ligne",
-            f"{exc.trouvees:n} URLs uniques pour un plafond de {exc.plafond:n}. "
-            "Le script en ligne de commande, lui, n'a aucune limite.")
+        return refus(413, "Trop d'URLs pour la version en ligne",
+                     f"{exc.trouvees} URLs uniques pour un plafond de {exc.plafond}. "
+                     "Le script en ligne de commande, lui, n'a aucune limite.")
     except engine.EntreeTropGrosse as exc:
-        return _erreur(request, 413, "Envoi trop volumineux", f"Le {exc} depasse la taille autorisee.")
+        return refus(413, "Envoi trop volumineux", f"Le {exc} depasse la taille autorisee.")
     except engine.ReglesIllisibles:
-        return _erreur(request, 400, "Aucune regle lue",
-                       "Verifie la section [crawl:categories] du fichier de regles.")
+        return refus(400, "Aucune regle lue",
+                     "Verifiez la section [crawl:categories] du fichier de regles.")
     except engine.ServiceSature:
-        return _erreur(request, 503, "Le service est occupe",
-                       "Deux classements tournent deja. Reessaie dans quelques secondes.")
+        return refus(503, "Le service est occupe",
+                     "Deux classements tournent deja. Reessayez dans quelques secondes.")
     except ValueError as exc:
-        return _erreur(request, 400, "Colonne introuvable", str(exc))
+        return refus(400, "Colonne introuvable", str(exc))
 
     log.info("classement urls=%s occurrences=%s groupes=%s",
              resultat.total_urls, resultat.total_occurrences, len(resultat.groupes))
@@ -182,8 +198,4 @@ def classer(
             headers={"Content-Disposition": 'attachment; filename="classement.csv"'},
         )
 
-    return gabarits.TemplateResponse(request, "resultat.html", _contexte(
-        request, r=resultat, apercu=resultat.rows[:500],
-        tronque=max(0, resultat.total_urls - 500),
-        regles=regles, urls=urls, url_column=url_column, ignore_dom=ignore_dom,
-    ))
+    return _rendu(request, r=resultat, **saisie)

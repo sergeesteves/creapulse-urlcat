@@ -212,7 +212,56 @@ def test_classement_html(client):
     assert rep.status_code == 200
     assert "URLs uniques" in rep.text
     assert "blog" in rep.text
-    assert "Rapport et diagnostic" in rep.text
+
+
+def test_le_formulaire_survit_au_classement(client):
+    """L'outil se travaille par iterations : regles -> classer -> regles -> classer.
+    Le fichier de regles doit rester a l'ecran, rempli, avec un bouton pour reclasser."""
+    rep = client.post(f"{PREFIXE}/classer",
+                      data={"regles": REGLES, "urls": URLS, "sortie": "apercu", "ignore_dom": "1"})
+    assert rep.status_code == 200
+    assert 'name="regles"' in rep.text
+    assert "[crawl:categories]" in rep.text        # les regles soumises sont reaffichees
+    assert "https://exemple.fr/blog/a" in rep.text  # les URLs aussi
+    assert "Reclasser" in rep.text
+
+
+def test_une_erreur_ne_fait_pas_perdre_les_regles(client):
+    """Le pire defaut possible pour cet outil : renvoyer une page d'erreur nue et
+    laisser l'utilisateur retaper un fichier de regles en cours de mise au point."""
+    beaucoup = "\n".join(f"https://exemple.fr/blog/{i}" for i in range(11))
+    rep = client.post(f"{PREFIXE}/classer",
+                      data={"regles": REGLES, "urls": beaucoup, "ignore_dom": "1"})
+    assert rep.status_code == 413
+    assert "[crawl:categories]" in rep.text
+    assert "https://exemple.fr/blog/7" in rep.text
+    assert 'name="regles"' in rep.text
+
+
+def test_filtres_et_rapport_replie(client):
+    """Filtrer par groupe ou univers sert a verifier un groupe a l'oeil. Le rapport,
+    lui, passe en second plan : c'est un outil de travail, pas un rapport."""
+    rep = client.post(f"{PREFIXE}/classer",
+                      data={"regles": REGLES, "urls": URLS, "sortie": "apercu", "ignore_dom": "1"})
+    assert 'id="f-groupe"' in rep.text and 'id="f-univers"' in rep.text
+    assert 'id="table-urls"' in rep.text
+    assert 'data-groupe="blog"' in rep.text
+    # le rapport est dans un <details>, en fin de page
+    assert "<details" in rep.text and "Rapport complet et diagnostic" in rep.text
+    assert rep.text.index("table-urls") < rep.text.index("Rapport complet et diagnostic")
+
+
+def test_apercu_stratifie_garde_les_petits_groupes():
+    """Un echantillon des N premieres lignes ferait disparaitre un petit groupe derriere
+    un gros. Le panel stratifie garantit qu'aucun groupe n'est absent de l'apercu."""
+    # 100 URLs : MAX_URLS_BYTES est volontairement bas dans ces tests (4 Kio).
+    lignes = ["https://exemple.fr/blog/%d" % i for i in range(100)]
+    lignes.append("https://exemple.fr/contact")        # groupe « autres », une seule URL
+    resultat = engine.classer(REGLES, "\n".join(lignes), plafond=1000, apercu_par_couple=20)
+    groupes_apercu = {r["groupe"] for r in resultat.apercu}
+    assert "autres" in groupes_apercu, "le petit groupe a disparu de l'apercu"
+    assert "blog" in groupes_apercu
+    assert len(resultat.apercu) < resultat.total_urls   # c'est bien un echantillon
 
 
 def test_classement_csv(client):

@@ -157,3 +157,69 @@ tr.vide td { color: var(--cp-ink-muted); }
   font-weight: 600;
 }
 .amorce .aide { font-weight: 400; }
+
+/* --- Page unique : formulaire en haut, resultats dessous ---------------------- */
+
+.separation {
+  border: 0;
+  border-top: 1px solid var(--cp-rule);
+  margin: 2.5rem 0 1.5rem;
+}
+.retour { margin: 0 0 1rem; font-size: 0.9rem; }
+
+.deux-colonnes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 680px) {
+  .deux-colonnes { grid-template-columns: 1fr; }
+}
+
+/* Cliquer une ligne de synthese filtre le tableau d'URLs. */
+table.cliquable tbody tr { cursor: pointer; }
+table.cliquable tbody tr:hover td { background: var(--cp-surface-subtle); }
+
+.filtres {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.filtres label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.filtres select,
+.filtres input[type="search"] {
+  font: 400 14px var(--pile);
+  color: var(--cp-ink);
+  background: #ffffff;
+  border: 1px solid var(--cp-rule);
+  border-radius: var(--r-btn);
+  padding: 7px 10px;
+  min-width: 160px;
+}
+.filtres select:focus-visible,
+.filtres input[type="search"]:focus-visible {
+  outline: 2px solid var(--cp-primary-fill);
+  outline-offset: 2px;
+}
+.filtres .aide { font-weight: 400; padding-bottom: 8px; }
+
+/* Le rapport est un outil de diagnostic, pas la sortie principale : replie, en fin de page. */
+.rapport-replie {
+  border: 1px solid var(--cp-rule);
+  border-radius: var(--r-box);
+  padding: 12px 14px;
+  margin: 2rem 0 0;
+  background: var(--cp-surface-subtle);
+}
+.rapport-replie summary { font-weight: 600; cursor: pointer; }
+.rapport-replie .aide { margin: 12px 0 8px; }
+.rapport-replie .rapport { margin: 0; background: #ffffff; }

@@ -1,21 +1,30 @@
 {% extends "base.html" %}
-{% block titre %}urlcat — classer ses URLs{% endblock %}
+{% block titre %}{% if r %}Classement — urlcat{% else %}urlcat — classer ses URLs{% endif %}{% endblock %}
 {% block contenu %}
+
 {% if not embed %}<h1>urlcat</h1>{% endif %}
 
+{% if erreur_titre %}
+<div class="encadre accent" role="alert">
+  <p><strong>{{ erreur_titre }}</strong> {{ erreur_detail }}</p>
+  <p class="aide">Vos règles et vos URLs sont conservées ci-dessous : corrigez, puis reclassez.</p>
+</div>
+{% endif %}
+
 <p class="amorce">
-  Première fois ?
+  {% if not r %}Première fois ?{% endif %}
   <button type="button" class="bouton quiet" id="charger-exemple">Charger un exemple</button>
   <span class="aide" id="exemple-etat" role="status"></span>
 </p>
 
-<form method="post" action="{{ prefixe }}/classer" class="pile">
+<form method="post" action="{{ prefixe }}/classer#resultats" class="pile">
   <div class="champ">
     <label for="regles">Fichier de règles</label>
-    <p class="aide">Le contenu de votre fichier de catégorisation, sections
-      <code>[crawl:categories]</code> et <code>[crawl:univers]</code>. Collez-le tel quel.</p>
-    <textarea id="regles" name="regles" rows="12" spellcheck="false"
-      placeholder="[crawl:categories]&#10;&#10;@names&#10;100	site&#10;200	inutile&#10;&#10;@&#10;path /blog/*&#10;name blog&#10;parent-id	100" required>{{ regles or "" }}</textarea>
+    <p class="aide">Sections <code>[crawl:categories]</code> et <code>[crawl:univers]</code>.
+      Corrigez-le et reclassez autant de fois qu'il faut — une bonne catégorisation s'obtient
+      rarement du premier coup.</p>
+    <textarea id="regles" name="regles" rows="14" spellcheck="false"
+      placeholder="[crawl:categories]&#10;&#10;@names&#10;100	site&#10;&#10;@&#10;path /blog/*&#10;name blog&#10;parent-id	100" required>{{ regles or "" }}</textarea>
   </div>
 
   <div class="champ">
@@ -23,11 +32,11 @@
     <p class="aide">Une URL par ligne — ou un CSV, en nommant la colonne ci-dessous.
       Jusqu'à <strong>{{ "{:,}".format(plafond).replace(",", " ") }} URLs uniques</strong>
       {% if membre %}(plafond membre){% else %}par passage{% endif %}.</p>
-    <textarea id="urls" name="urls" rows="12" spellcheck="false"
-      placeholder="https://exemple.fr/blog/mon-article&#10;https://exemple.fr/offers/42" required>{{ urls or "" }}</textarea>
+    <textarea id="urls" name="urls" rows="{% if r %}6{% else %}12{% endif %}" spellcheck="false"
+      placeholder="https://exemple.fr/blog/mon-article&#10;https://exemple.fr/produit/42" required>{{ urls or "" }}</textarea>
   </div>
 
-  <details class="options">
+  <details class="options" {% if url_column %}open{% endif %}>
     <summary>Options</summary>
     <div class="champ">
       <label for="url_column">Colonne CSV contenant les URLs</label>
@@ -41,17 +50,22 @@
   </details>
 
   <div class="actions">
-    <button type="submit" name="sortie" value="apercu" class="bouton cta">Classer les URLs</button>
+    <button type="submit" name="sortie" value="apercu" class="bouton cta">
+      {% if r %}Reclasser{% else %}Classer les URLs{% endif %}
+    </button>
     <button type="submit" name="sortie" value="csv" class="bouton secondary">Télécharger le CSV</button>
+    {% if not r %}
+    <span class="aide">L'exemple contient une règle éclipsée et une règle sans objet,
+      pour que le diagnostic ait quelque chose à dire.</span>
+    {% endif %}
   </div>
 </form>
 
+{% if not r %}
 <p class="aide">
   L'exemple est aussi téléchargeable :
   <a href="{{ prefixe }}/static/exemple-regles.txt" download>fichier de règles</a> ·
   <a href="{{ prefixe }}/static/exemple-urls.txt" download>liste d'URLs</a>.
-  Il contient volontairement une règle éclipsée et une règle sans objet, pour que le
-  diagnostic ait quelque chose à dire.
 </p>
 
 <aside class="encadre">
@@ -59,9 +73,127 @@
   conservées nulle part. Pour un audit client, préférez le script : il tourne chez vous, sans
   limite d'URLs, et rien ne part sur le réseau.</p>
 </aside>
+{% endif %}
+
+{% if r %}
+<hr class="separation" id="resultats">
+
+<p class="retour"><a href="#regles">&uarr; Modifier les règles et reclasser</a></p>
+
+<div class="bilan">
+  <div class="chiffre"><strong>{{ "{:,}".format(r.total_urls).replace(",", " ") }}</strong><span>URLs uniques</span></div>
+  <div class="chiffre"><strong>{{ "{:,}".format(r.total_occurrences).replace(",", " ") }}</strong><span>occurrences</span></div>
+  <div class="chiffre"><strong>{{ r.groupes | length }}</strong><span>groupes</span></div>
+  <div class="chiffre"><strong>{{ r.univers | length }}</strong><span>univers</span></div>
+</div>
+
+{% if r.regles_sans_objet %}
+<div class="encadre accent">
+  <p><strong>{{ r.regles_sans_objet }} règle(s) n'ont classé aucune URL :</strong>
+  {% for nom in r.groupes_sans_objet %}<code>{{ nom }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+  Soit le motif est faux, soit une règle placée plus haut a déjà pris leurs URLs — le rapport,
+  en bas de page, nomme la règle qui les capte.</p>
+</div>
+{% endif %}
+
+{% if r.avertissements %}
+<div class="encadre">
+  <p><strong>Avertissements à la lecture du fichier de règles</strong></p>
+  <ul>{% for a in r.avertissements %}<li>{{ a }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<h2>Vérifier un groupe</h2>
+<p class="aide">Cliquez sur une ligne pour ne garder que ses URLs, et contrôler à l'œil qu'elles
+  sont au bon endroit.</p>
+
+<div class="deux-colonnes">
+  <div>
+    <table class="cliquable">
+      <thead><tr><th>Groupe</th><th class="n">URLs</th><th class="n">Occurr.</th></tr></thead>
+      <tbody>
+      {% for l in r.groupes %}
+        <tr data-filtre="groupe" data-valeur="{{ l.nom }}">
+          <td>{{ l.nom }}</td>
+          <td class="n">{{ "{:,}".format(l.uniques).replace(",", " ") }}</td>
+          <td class="n">{{ "{:,}".format(l.occurrences).replace(",", " ") }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <table class="cliquable">
+      <thead><tr><th>Univers</th><th class="n">URLs</th><th class="n">Occurr.</th></tr></thead>
+      <tbody>
+      {% for l in r.univers %}
+        <tr data-filtre="univers" data-valeur="{{ l.nom }}">
+          <td>{{ l.nom }}</td>
+          <td class="n">{{ "{:,}".format(l.uniques).replace(",", " ") }}</td>
+          <td class="n">{{ "{:,}".format(l.occurrences).replace(",", " ") }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<h2>Les URLs</h2>
+<div class="filtres">
+  <label>Groupe
+    <select id="f-groupe">
+      <option value="">tous</option>
+      {% for l in r.groupes %}<option value="{{ l.nom }}">{{ l.nom }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Univers
+    <select id="f-univers">
+      <option value="">tous</option>
+      {% for l in r.univers %}<option value="{{ l.nom }}">{{ l.nom }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Contient
+    <input type="search" id="f-texte" placeholder="fragment d'URL ou de motif">
+  </label>
+  <button type="button" class="bouton quiet" id="f-reset">Tout afficher</button>
+  <span class="aide" id="f-compte" role="status"></span>
+</div>
+
+<table id="table-urls">
+  <thead><tr><th>URL</th><th>Groupe</th><th>Univers</th><th class="n">Nb</th><th>Motif gagnant</th><th class="n">Ligne</th></tr></thead>
+  <tbody>
+  {% for ligne in r.apercu %}
+    <tr data-groupe="{{ ligne.groupe }}" data-univers="{{ ligne.univers }}">
+      <td class="url">{{ ligne.url }}</td>
+      <td>{{ ligne.groupe }}</td>
+      <td>{{ ligne.univers }}</td>
+      <td class="n">{{ ligne.nombre }}</td>
+      <td><code>{{ ligne.motif_groupe }}</code></td>
+      <td class="n">{{ ligne.ligne_groupe }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<p class="aide">
+  {{ r.apercu | length }} ligne(s) dans l'aperçu, sur {{ "{:,}".format(r.total_urls).replace(",", " ") }} URLs uniques.
+  {% if r.apercu | length < r.total_urls %}
+  C'est un <strong>échantillon stratifié</strong> : jusqu'à {{ r.apercu_par_couple }} URLs par couple
+  groupe × univers, pour qu'un petit groupe reste visible derrière un gros. Les comptages des
+  tableaux ci-dessus et le CSV, eux, portent sur la totalité.
+  {% endif %}
+</p>
+
+<details class="rapport-replie">
+  <summary>Rapport complet et diagnostic des règles</summary>
+  <p class="aide">C'est ici que les règles éclipsées sont nommées : quelle règle a pris les URLs
+    d'une autre, combien, et un exemple.</p>
+  <pre class="rapport">{{ r.rapport }}</pre>
+</details>
+{% endif %}
 
 <script>
-// Remplit les DEUX champs : un fichier de regles seul ne se teste pas.
+// --- Charger un exemple : remplit les DEUX champs, un fichier de regles seul ne se teste pas.
 document.getElementById('charger-exemple').addEventListener('click', async function () {
   var etat = document.getElementById('exemple-etat');
   this.disabled = true;
@@ -74,9 +206,58 @@ document.getElementById('charger-exemple').addEventListener('click', async funct
     document.getElementById('urls').value = await u.text();
     etat.textContent = 'exemple chargé — cliquez sur « Classer les URLs »';
   } catch (e) {
-    etat.textContent = 'échec du chargement ; utilisez les liens de téléchargement ci-dessus';
+    etat.textContent = 'échec du chargement ; utilisez les liens de téléchargement';
   }
   this.disabled = false;
 });
+
+// --- Filtres du tableau d'URLs. Tout se fait dans la page : on verifie un groupe a l'oeil,
+// on corrige les regles juste au-dessus, on reclasse. Pas d'aller-retour serveur pour filtrer.
+(function () {
+  var table = document.getElementById('table-urls');
+  if (!table) return;
+  var lignes = Array.prototype.slice.call(table.tBodies[0].rows);
+  var fg = document.getElementById('f-groupe');
+  var fu = document.getElementById('f-univers');
+  var ft = document.getElementById('f-texte');
+  var compte = document.getElementById('f-compte');
+
+  function appliquer() {
+    var g = fg.value, u = fu.value, t = ft.value.trim().toLowerCase();
+    var vus = 0;
+    for (var i = 0; i < lignes.length; i++) {
+      var tr = lignes[i];
+      var ok = (!g || tr.dataset.groupe === g) &&
+               (!u || tr.dataset.univers === u) &&
+               (!t || tr.textContent.toLowerCase().indexOf(t) !== -1);
+      tr.hidden = !ok;
+      if (ok) vus++;
+    }
+    var filtre = g || u || t;
+    compte.textContent = filtre
+      ? vus + ' ligne(s) sur ' + lignes.length + ' dans l’aperçu'
+      : '';
+  }
+
+  fg.addEventListener('change', appliquer);
+  fu.addEventListener('change', appliquer);
+  ft.addEventListener('input', appliquer);
+  document.getElementById('f-reset').addEventListener('click', function () {
+    fg.value = ''; fu.value = ''; ft.value = ''; appliquer();
+  });
+
+  // Cliquer une ligne des tableaux de synthese pose le filtre correspondant.
+  var synthese = document.querySelectorAll('table.cliquable tbody tr');
+  for (var j = 0; j < synthese.length; j++) {
+    synthese[j].addEventListener('click', function () {
+      var cible = this.dataset.filtre === 'groupe' ? fg : fu;
+      var autre = this.dataset.filtre === 'groupe' ? fu : fg;
+      cible.value = (cible.value === this.dataset.valeur) ? '' : this.dataset.valeur;
+      autre.value = '';
+      appliquer();
+      table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+})();
 </script>
 {% endblock %}

@@ -65,6 +65,10 @@ class Resultat:
     univers: list[Ligne] = field(default_factory=list)
     hotes_inconnus: list[str] = field(default_factory=list)
     groupes_sans_objet: list[str] = field(default_factory=list)
+    # Echantillon STRATIFIE : jusqu'a N URLs par couple groupe x univers, pour qu'un
+    # filtre sur un petit groupe montre quand meme ses URLs. Le CSV, lui, est complet.
+    apercu: list[dict] = field(default_factory=list)
+    apercu_par_couple: int = 0
 
     @property
     def regles_sans_objet(self) -> int:
@@ -85,6 +89,7 @@ def classer(
     url_column: str | None = None,
     ignore_dom: bool = True,
     diagnose: bool = True,
+    apercu_par_couple: int = 120,
 ) -> Resultat:
     """Classe les URLs. Leve une exception du module en cas de refus, jamais de SystemExit."""
     if len(regles_texte.encode("utf-8")) > settings.max_rules_bytes:
@@ -110,6 +115,8 @@ def classer(
         seed=1,
         out="(telechargement CSV)",
         html=None,
+        panel=100,
+        panel_per_group=apercu_par_couple,
     )
 
     if not _places.acquire(blocking=False):
@@ -124,6 +131,12 @@ def classer(
         )
     finally:
         _places.release()
+
+    # L'apercu sert a VERIFIER un groupe a l'oeil, pas a tout afficher : on prend un
+    # echantillon par couple groupe x univers plutot que les N premieres lignes, sinon un
+    # petit groupe disparait derriere un gros.
+    apercu, _ = urlcat.pick_panel(rows, args)
+    apercu.sort(key=lambda r: (r["groupe"], r["univers"], r["url"]))
 
     # Une regle qui ne gagne jamais n'apparait PAS dans stats : il faut comparer aux regles
     # declarees. Sans ca, le compteur restait a zero et l'encadre ne s'affichait jamais.
@@ -141,6 +154,8 @@ def classer(
         univers=_lignes(stats["univers"]),
         hotes_inconnus=sorted(hotes) if not ignore_dom else [],
         groupes_sans_objet=sans_objet,
+        apercu=apercu,
+        apercu_par_couple=apercu_par_couple,
     )
 
 
