@@ -147,3 +147,13 @@ tr.vide td { color: var(--cp-ink-muted); }
   .actions { flex-direction: column; align-items: stretch; }
   .bouton { text-align: center; }
 }
+
+.amorce {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+  font-weight: 600;
+}
+.amorce .aide { font-weight: 400; }

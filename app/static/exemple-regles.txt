@@ -1,0 +1,65 @@
+# Exemple de fichier de regles urlcat — une base de depart.
+# Les lignes qui commencent par # ou ; sont des commentaires.
+# Remplacez les motifs par ceux de votre site ; gardez la structure.
+
+[crawl:categories]
+
+# Table des parents : un identifiant, un nom. Sert a replier plusieurs groupes.
+@names
+100	site-utile
+200	inutile
+
+# Une regle = un bloc @. "path" porte le motif, "name" nomme le groupe,
+# "parent-id" la rattache a un parent (facultatif).
+@
+path /
+name accueil
+parent-id	100
+
+@
+path /blog/*
+name blog
+parent-id	100
+
+# rx: = vraie expression reguliere. Ici /produit/ suivi d'un nombre, ET RIEN APRES
+# (c'est le $). Donc /produit/42 est attrape, /produit/42/avis ne l'est pas.
+@
+path rx:^/produit/[0-9]+$
+name fiches-produit
+parent-id	100
+
+# /page/ suivi d'un nombre, n'importe ou dans l'URL.
+@
+path rx:/page/[0-9]+
+name pagination
+parent-id	200
+
+# ATTENTION, regle volontairement ECLIPSEE par /blog/* ci-dessus.
+# Le motif porte sur le chemin ET la query string, et /blog/* avale donc aussi
+# "?utm_source=...". Resultat : cette regle ne gagnera jamais sur un blog tague.
+# Pour la faire gagner, il faudrait la remonter AVANT la regle blog.
+# Le diagnostic vous le dira, avec le nombre d'URLs captees et un exemple.
+@
+path *utm_*
+name inutiles-tracking
+parent-id	200
+
+# Cette regle ne correspond a aucune URL du jeu d'exemple : le diagnostic la
+# signalera comme "sans objet" — motif faux, ou rubrique disparue depuis une refonte.
+@
+path /ancienne-rubrique/*
+name regle-perimee
+parent-id	100
+
+# L'axe thematique, independant du precedent. Une URL peut tres bien avoir un
+# groupe et un univers qui ne se recouvrent pas.
+[crawl:univers]
+
+@
+path /blog/*
+name editorial
+
+@
+path /produit/*
++	/categorie/*
+name catalogue

@@ -292,3 +292,34 @@ def test_head_est_accepte_sur_les_routes_de_lecture(client):
 def test_health_dit_si_la_session_est_signable(client):
     """Sans SESSION_SECRET, un membre retombe SILENCIEUSEMENT sur le plafond gratuit."""
     assert client.get("/health").json()["session_configuree"] is True
+
+
+def test_jeu_dexemple_servi_et_coherent(client):
+    """Le bouton « Charger un exemple » remplit les deux champs depuis ces deux fichiers.
+    S'ils ne sont pas servis, le bouton echoue en silence pour le visiteur."""
+    r = client.get(f"{PREFIXE}/static/exemple-regles.txt")
+    u = client.get(f"{PREFIXE}/static/exemple-urls.txt")
+    assert r.status_code == 200 and u.status_code == 200
+    assert "[crawl:categories]" in r.text and "[crawl:univers]" in r.text
+    assert u.text.strip().count("\n") >= 10
+
+
+def test_le_jeu_dexemple_declenche_bien_les_deux_diagnostics():
+    """L'exemple n'est pas la pour classer, il est la pour DEMONTRER. S'il cesse de
+    produire une regle eclipsee et une regle sans objet, il a perdu sa raison d'etre."""
+    racine = Path(__file__).resolve().parents[1] / "app" / "static"
+    regles = (racine / "exemple-regles.txt").read_text(encoding="utf-8")
+    urls = (racine / "exemple-urls.txt").read_text(encoding="utf-8")
+
+    resultat = engine.classer(regles, urls, plafond=1000)
+    assert resultat.total_urls == 19
+    assert resultat.total_occurrences == 25
+    # une regle qui ne gagne jamais, nommee
+    assert "regle-perimee" in resultat.groupes_sans_objet
+    # et l'eclipse, visible dans le rapport
+    assert "ECLIPS" in resultat.rapport.upper()
+    assert "inutiles-tracking" in resultat.rapport
+    # les deux axes divergent : c'est le point pedagogique
+    groupes = {l.nom: l.uniques for l in resultat.groupes}
+    univers = {l.nom: l.uniques for l in resultat.univers}
+    assert univers["catalogue"] > max(groupes.values())

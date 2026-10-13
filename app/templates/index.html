@@ -3,6 +3,12 @@
 {% block contenu %}
 {% if not embed %}<h1>urlcat</h1>{% endif %}
 
+<p class="amorce">
+  Première fois ?
+  <button type="button" class="bouton quiet" id="charger-exemple">Charger un exemple</button>
+  <span class="aide" id="exemple-etat" role="status"></span>
+</p>
+
 <form method="post" action="{{ prefixe }}/classer" class="pile">
   <div class="champ">
     <label for="regles">Fichier de règles</label>
@@ -40,9 +46,37 @@
   </div>
 </form>
 
+<p class="aide">
+  L'exemple est aussi téléchargeable :
+  <a href="{{ prefixe }}/static/exemple-regles.txt" download>fichier de règles</a> ·
+  <a href="{{ prefixe }}/static/exemple-urls.txt" download>liste d'URLs</a>.
+  Il contient volontairement une règle éclipsée et une règle sans objet, pour que le
+  diagnostic ait quelque chose à dire.
+</p>
+
 <aside class="encadre">
   <p><strong>Vos URLs transitent par ce serveur</strong> le temps du classement, et ne sont
   conservées nulle part. Pour un audit client, préférez le script : il tourne chez vous, sans
   limite d'URLs, et rien ne part sur le réseau.</p>
 </aside>
+
+<script>
+// Remplit les DEUX champs : un fichier de regles seul ne se teste pas.
+document.getElementById('charger-exemple').addEventListener('click', async function () {
+  var etat = document.getElementById('exemple-etat');
+  this.disabled = true;
+  etat.textContent = 'chargement…';
+  try {
+    var r = await fetch('{{ prefixe }}/static/exemple-regles.txt');
+    var u = await fetch('{{ prefixe }}/static/exemple-urls.txt');
+    if (!r.ok || !u.ok) throw new Error('http');
+    document.getElementById('regles').value = await r.text();
+    document.getElementById('urls').value = await u.text();
+    etat.textContent = 'exemple chargé — cliquez sur « Classer les URLs »';
+  } catch (e) {
+    etat.textContent = 'échec du chargement ; utilisez les liens de téléchargement ci-dessus';
+  }
+  this.disabled = false;
+});
+</script>
 {% endblock %}
