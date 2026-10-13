@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+.env
+.venv/
+venv/
+*.csv
+*.html
+!app/templates/*.html
+.pytest_cache/
+desktop.ini
+
+# --- Ne JAMAIS publier : donnees client ---------------------------------------
+# Le depot est public. Ces fichiers viennent d'un audit reel (hote de staging du
+# client, nom du client) et servent de corpus de reference en local uniquement.
+PASSATION.md
+tests/urls-prod.txt
+tests/urls-staging.txt
+tests/exemple-apercu.html
+tests/exemple-classement.csv
+
+.pytest_cache/

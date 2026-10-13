@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block titre %}{{ titre }} — urlcat{% endblock %}
+{% block contenu %}
+<div class="encadre accent">
+  <h2>{{ titre }}</h2>
+  <p>{{ detail }}</p>
+</div>
+<p><a class="bouton quiet" href="{{ prefixe }}/{% if embed %}?embed=1{% endif %}">Revenir au formulaire</a></p>
+{% endblock %}

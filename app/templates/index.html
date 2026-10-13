@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block titre %}urlcat — classer ses URLs{% endblock %}
+{% block contenu %}
+{% if not embed %}<h1>urlcat</h1>{% endif %}
+
+<form method="post" action="{{ prefixe }}/classer" class="pile">
+  <div class="champ">
+    <label for="regles">Fichier de règles</label>
+    <p class="aide">Le contenu de votre fichier de catégorisation, sections
+      <code>[crawl:categories]</code> et <code>[crawl:univers]</code>. Collez-le tel quel.</p>
+    <textarea id="regles" name="regles" rows="12" spellcheck="false"
+      placeholder="[crawl:categories]&#10;&#10;@names&#10;100	site&#10;200	inutile&#10;&#10;@&#10;path /blog/*&#10;name blog&#10;parent-id	100" required>{{ regles or "" }}</textarea>
+  </div>
+
+  <div class="champ">
+    <label for="urls">Liste d'URLs</label>
+    <p class="aide">Une URL par ligne — ou un CSV, en nommant la colonne ci-dessous.
+      Jusqu'à <strong>{{ "{:,}".format(plafond).replace(",", " ") }} URLs uniques</strong>
+      {% if membre %}(plafond membre){% else %}par passage{% endif %}.</p>
+    <textarea id="urls" name="urls" rows="12" spellcheck="false"
+      placeholder="https://exemple.fr/blog/mon-article&#10;https://exemple.fr/offers/42" required>{{ urls or "" }}</textarea>
+  </div>
+
+  <details class="options">
+    <summary>Options</summary>
+    <div class="champ">
+      <label for="url_column">Colonne CSV contenant les URLs</label>
+      <input type="text" id="url_column" name="url_column" value="{{ url_column or '' }}"
+             placeholder="laisser vide si une URL par ligne">
+    </div>
+    <label class="case">
+      <input type="checkbox" name="ignore_dom" value="1" {% if ignore_dom %}checked{% endif %}>
+      Ignorer la directive <code>dom</code> (règles écrites pour un autre hôte)
+    </label>
+  </details>
+
+  <div class="actions">
+    <button type="submit" name="sortie" value="apercu" class="bouton cta">Classer les URLs</button>
+    <button type="submit" name="sortie" value="csv" class="bouton secondary">Télécharger le CSV</button>
+  </div>
+</form>
+
+<aside class="encadre">
+  <p><strong>Vos URLs transitent par ce serveur</strong> le temps du classement, et ne sont
+  conservées nulle part. Pour un audit client, préférez le script : il tourne chez vous, sans
+  limite d'URLs, et rien ne part sur le réseau.</p>
+</aside>
+{% endblock %}
