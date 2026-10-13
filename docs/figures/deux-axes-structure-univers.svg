@@ -1,0 +1,37 @@
+<svg viewBox="0 0 720 348" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="axes-title axes-desc">
+  <title id="axes-title">Les deux axes de classement d'une URL</title>
+  <desc id="axes-desc">Une grille croise l'axe structurel en lignes — fiches produit, pages de devis, éditorial, pagination — et l'axe thématique en colonnes — assurance auto, habitation, santé. Chaque URL occupe une seule case, à l'intersection d'un groupe et d'un univers ; la case mise en avant montre qu'une fiche produit de l'univers assurance auto est repérée par les deux axes à la fois, ce qu'un classement à un seul niveau perdrait.</desc>
+  <rect x="0.5" y="0.5" width="719" height="347" fill="#f7f7f7" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+
+  <text x="196" y="34" fill="#595959" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.12em">UNIVERS</text>
+  <text x="28" y="64" fill="#595959" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.12em">STRUCTURE</text>
+
+  <text x="275" y="64" fill="#111111" font-size="13" font-weight="600" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" text-anchor="middle">assurance auto</text>
+  <text x="441" y="64" fill="#111111" font-size="13" font-weight="600" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" text-anchor="middle">habitation</text>
+  <text x="607" y="64" fill="#111111" font-size="13" font-weight="600" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" text-anchor="middle">santé</text>
+
+  <text x="184" y="102" fill="#111111" font-size="14" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" text-anchor="end">fiches produit</text>
+  <rect x="200" y="80" width="150" height="34" rx="4" fill="rgba(230,23,129,0.12)" stroke="#e61781" stroke-width="1.5"/>
+  <text x="275" y="102" fill="#111111" font-size="13" font-weight="600" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" text-anchor="middle">cette URL</text>
+  <rect x="366" y="80" width="150" height="34" rx="4" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+  <rect x="532" y="80" width="150" height="34" rx="4" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+
+  <text x="184" y="158" fill="#111111" font-size="14" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" text-anchor="end">pages de devis</text>
+  <rect x="200" y="136" width="150" height="34" rx="4" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+  <rect x="366" y="136" width="150" height="34" rx="4" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+  <rect x="532" y="136" width="150" height="34" rx="4" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+
+  <text x="184" y="214" fill="#111111" font-size="14" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" text-anchor="end">éditorial</text>
+  <rect x="200" y="192" width="150" height="34" rx="4" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+  <rect x="366" y="192" width="150" height="34" rx="4" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+  <rect x="532" y="192" width="150" height="34" rx="4" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+
+  <text x="184" y="270" fill="#111111" font-size="14" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" text-anchor="end">pagination</text>
+  <rect x="200" y="248" width="150" height="34" rx="4" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+  <rect x="366" y="248" width="150" height="34" rx="4" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+  <rect x="532" y="248" width="150" height="34" rx="4" fill="rgba(0,0,0,0.03)" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+
+  <line x1="28" y1="306" x2="692" y2="306" stroke="rgba(0,0,0,0.12)" stroke-width="0.8"/>
+  <text x="28" y="326" fill="#595959" font-size="13" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">Une URL occupe une seule case : un groupe, et un univers.</text>
+  <text x="28" y="342" fill="#595959" font-size="13" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">Un classement à un seul niveau n'en garderait qu'une des deux coordonnées.</text>
+</svg>

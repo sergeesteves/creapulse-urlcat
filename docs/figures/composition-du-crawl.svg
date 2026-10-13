@@ -1,0 +1,35 @@
+<svg viewBox="0 0 720 304" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="compo-title compo-desc">
+  <title id="compo-title">Un total d'URLs, puis le même total réparti par groupe</title>
+  <desc id="compo-desc">Exemple. En haut, un crawl de 100 000 URLs affiché comme une seule barre : il ne porte qu'un total. En bas, la même largeur découpée en cinq groupes — pagination 38 pour cent, facettes 24, fiches produit 18, éditorial 12, autres 8 — ce qui rend la composition du site lisible et désigne la pagination comme le premier poste à traiter.</desc>
+  <rect x="0.5" y="0.5" width="719" height="303" fill="#f7f7f7" stroke="rgba(0,0,0,0.12)" stroke-width="1"/>
+
+  <text x="28" y="40" fill="#595959" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.12em">SANS CATÉGORISATION</text>
+  <rect x="28" y="52" width="664" height="40" rx="4" fill="#f7f7f7"/>
+  <rect x="28" y="52" width="664" height="40" rx="4" fill="rgba(0,0,0,0.06)" stroke="#595959" stroke-width="1"/>
+  <text x="360" y="77" fill="#111111" font-size="15" font-weight="600" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" text-anchor="middle">100 000 URLs crawlées</text>
+  <text x="28" y="116" fill="#595959" font-size="13" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">Un total, et rien à en faire.</text>
+
+  <text x="28" y="164" fill="#595959" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" letter-spacing="0.12em">AVEC CATÉGORISATION</text>
+  <rect x="28" y="176" width="664" height="40" rx="4" fill="#f7f7f7"/>
+  <rect x="28"  y="176" width="248" height="40" rx="4" fill="rgba(230,23,129,0.12)" stroke="#e61781" stroke-width="1.5"/>
+  <rect x="280" y="176" width="156" height="40" rx="4" fill="#027dba"/>
+  <rect x="440" y="176" width="116" height="40" rx="4" fill="#41b3ec"/>
+  <rect x="560" y="176" width="76"  height="40" rx="4" fill="#80ccf2"/>
+  <rect x="640" y="176" width="52"  height="40" rx="4" fill="#c0e6f8"/>
+  <text x="152" y="201" fill="#111111" font-size="14" font-weight="600" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" text-anchor="middle">38 %</text>
+  <text x="358" y="201" fill="#ffffff" font-size="14" font-weight="600" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif" text-anchor="middle">24 %</text>
+
+  <rect x="28" y="240" width="12" height="12" rx="2" fill="rgba(230,23,129,0.12)" stroke="#e61781" stroke-width="1.2"/>
+  <text x="46" y="250" fill="#111111" font-size="13" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">pagination</text>
+  <rect x="152" y="240" width="12" height="12" rx="2" fill="#027dba"/>
+  <text x="170" y="250" fill="#111111" font-size="13" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">facettes</text>
+  <rect x="256" y="240" width="12" height="12" rx="2" fill="#41b3ec"/>
+  <text x="274" y="250" fill="#111111" font-size="13" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">fiches produit 18 %</text>
+  <rect x="424" y="240" width="12" height="12" rx="2" fill="#80ccf2"/>
+  <text x="442" y="250" fill="#111111" font-size="13" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">éditorial 12 %</text>
+  <rect x="560" y="240" width="12" height="12" rx="2" fill="#c0e6f8"/>
+  <text x="578" y="250" fill="#111111" font-size="13" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">autres 8 %</text>
+
+  <line x1="28" y1="272" x2="692" y2="272" stroke="rgba(0,0,0,0.12)" stroke-width="0.8"/>
+  <text x="28" y="290" fill="#595959" font-size="13" font-family="'Open Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">Le même total. Mais cinq décisions, et une priorité évidente.</text>
+</svg>

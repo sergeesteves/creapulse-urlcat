@@ -156,7 +156,11 @@ Au-delà du plafond, le service refuse en 413 et renvoie vers la CLI, qui n'a pa
 4. Healthcheck `GET /health` (déjà dans le Dockerfile).
 5. Dépôt public → **pas de webhook** → redéploiement manuel après chaque push.
 6. Côté WordPress : déclarer le slug `urlcat` dans Creapulse Tools → Webhooks formulaires
-   → Outils déclarés, puis poser le shortcode dans la page :
+   → Outils déclarés, **sur l'environnement où le slug est déclaré**, et faire pointer
+   `WP_TOOL_EVENT_URL` vers ce même environnement. Les deux doivent coïncider : un outil déclaré
+   sur le staging alors que l'app poste vers la prod fait échouer l'attribution (la route répond,
+   mais le slug lui est inconnu). À la migration, les deux se basculent ensemble vers `www`.
+   Puis poser le shortcode dans la page :
 
 ```
 [creapulse_tool src="https://www.creapulse.fr/outils/urlcat/?embed=1" access="optional" register_level="1" height="620" autoheight="1"]
@@ -228,6 +232,13 @@ Garde-fou mesuré : `#027dba` en **texte** sur le papier `#f7f7f7` donne 4,22:1 
 `#e2177f` passe à 4,50:1 — la limite exacte, aucune marge.
 
 ---
+
+## Figures
+
+Les sources SVG des schémas publiés sont dans [`docs/figures/`](docs/figures/), avec le détail de
+leur dimensionnement : **le même schéma existe en deux versions**, une par largeur de rendu
+(colonne d'article à 720 px, section de page outil à 830 px). Un SVG est dimensionné pour une
+largeur, pas dans l'absolu.
 
 ## Limites connues
 
