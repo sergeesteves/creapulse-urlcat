@@ -37,11 +37,16 @@ PLAFOND_CORPS = settings.max_rules_bytes + settings.max_urls_bytes + 65_536
 async def prefixe_et_garde_fous(request: Request, call_next):
     """Retire le prefixe public, refuse un corps trop gros, pose les en-tetes de securite."""
     chemin = request.scope["path"]
-    request.scope["chemin_public"] = chemin
     prefixe = settings.root_path
     if prefixe and (chemin == prefixe or chemin.startswith(prefixe + "/")):
-        reste = chemin[len(prefixe):] or "/"
-        request.scope["path"] = reste
+        # Traefik n'a pas retire le prefixe : le chemin recu EST le chemin public.
+        request.scope["chemin_public"] = chemin
+        request.scope["path"] = chemin[len(prefixe):] or "/"
+    else:
+        # Traefik l'a retire (cas de Coolify, is_stripprefix_enabled) : le chemin public
+        # se reconstruit. Sans ca, la redirection d'apres-jeton renvoyait le membre vers la
+        # racine du site DANS l'iframe, et seul un visiteur connecte le voyait.
+        request.scope["chemin_public"] = (prefixe + chemin) if prefixe else chemin
 
     longueur = request.headers.get("content-length")
     if longueur and longueur.isdigit() and int(longueur) > PLAFOND_CORPS:
@@ -90,7 +95,7 @@ def _erreur(request: Request, code: int, titre: str, detail: str) -> Response:
         request, "erreur.html", _contexte(request, titre=titre, detail=detail), status_code=code)
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health() -> JSONResponse:
     return JSONResponse({
         "ok": True,
@@ -99,10 +104,11 @@ def health() -> JSONResponse:
         "plafond_membre": settings.max_urls_membre,
         "places": settings.max_concurrent,
         "jeton_configure": bool(settings.wp_token_secret),
+        "session_configuree": bool(settings.session_secret),
     })
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def accueil(request: Request):
     """Formulaire. Consomme le jeton WP au chargement, puis le retire de l'URL."""
     brut = request.query_params.get("wp_token")

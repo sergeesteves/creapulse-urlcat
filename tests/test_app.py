@@ -263,3 +263,32 @@ def test_plafond_membre_plus_haut_que_lanonyme():
     from app.config import settings
     assert settings.plafond(membre=False) == 10
     assert settings.plafond(membre=True) == 100
+
+
+# --------------------------------------------------------------------------- #
+# Non-regressions
+# --------------------------------------------------------------------------- #
+
+def test_redirection_apres_jeton_porte_le_prefixe_meme_quand_traefik_le_retire(client):
+    """Traefik retire le prefixe (is_stripprefix_enabled), donc le chemin qui arrive est
+    DEJA nu. Reconstruire la cible depuis ce chemin renvoyait le membre vers la racine du
+    site, dans l'iframe. Anonyme, il n'y a pas de jeton donc pas de redirection : seul un
+    visiteur connecte voyait la panne."""
+    rep = client.get("/?embed=1&wp_token=bidon", follow_redirects=False)
+    assert rep.status_code == 302
+    cible = rep.headers["location"]
+    assert cible.startswith(f"{PREFIXE}/"), cible
+    assert "embed=1" in cible
+    assert "wp_token" not in cible
+
+
+def test_head_est_accepte_sur_les_routes_de_lecture(client):
+    """FastAPI n'ajoute pas HEAD aux routes GET (Starlette le fait, APIRoute non) : une sonde
+    de monitoring ou un verificateur de liens recevait 405."""
+    assert client.head("/health").status_code == 200
+    assert client.head(f"{PREFIXE}/").status_code == 200
+
+
+def test_health_dit_si_la_session_est_signable(client):
+    """Sans SESSION_SECRET, un membre retombe SILENCIEUSEMENT sur le plafond gratuit."""
+    assert client.get("/health").json()["session_configuree"] is True
