@@ -477,3 +477,16 @@ def test_pas_de_volet_vide_avant_le_premier_classement(client):
     assert 'class="atelier"' not in rep.text
     assert 'class="volet-resultats"' not in rep.text
     assert 'class="volet-regles"' in rep.text
+
+
+def test_le_mode_embarque_survit_au_classement(client):
+    """Dans l'iframe, le formulaire poste vers /classer : sans embed=1 dans l'action, la
+    page reaffichee sort du mode embarque et le titre h1 reapparait au milieu de la page
+    d'accueil du site. Le defaut ne se voit QUE dans l'iframe, apres la premiere iteration."""
+    rep = client.get(f"{PREFIXE}/?embed=1")
+    assert 'action="/outils/urlcat/classer?embed=1#resultats"' in rep.text
+    assert "<h1>" not in rep.text
+
+    rep = client.get(f"{PREFIXE}/")
+    assert 'action="/outils/urlcat/classer#resultats"' in rep.text
+    assert "<h1>" in rep.text

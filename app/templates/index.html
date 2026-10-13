@@ -19,7 +19,7 @@
 
 {% if r %}<div class="atelier">{% endif %}
 <div class="volet-regles">
-<form method="post" action="{{ prefixe }}/classer#resultats" class="pile" id="form-classer">
+<form method="post" action="{{ prefixe }}/classer{% if embed %}?embed=1{% endif %}#resultats" class="pile" id="form-classer">
   <input type="hidden" name="filtre_groupe" id="h-groupe" value="">
   <input type="hidden" name="filtre_univers" id="h-univers" value="">
   <div class="champ">

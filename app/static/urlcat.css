@@ -316,3 +316,27 @@ main { max-width: 1440px; }
   .volet-resultats .retour { display: none; }
   .volet-resultats > .bilan { margin-top: 0; }
 }
+
+/* Embarque dans une iframe en AUTO-HAUTEUR : l'iframe fait la hauteur de son contenu,
+   donc rien ne defile a l'interieur et « sticky » n'a aucun ancetre defilant — il se
+   neutralise. On donne donc a l'atelier une hauteur FIXE (pas en vh : dans une iframe
+   auto-hauteur, 100vh vaut la hauteur du contenu, le calcul tournerait en rond), et
+   chaque volet defile chez lui. L'iframe annonce alors une hauteur stable d'environ
+   900 px, et la page parente n'a pas a defiler pour passer des regles aux resultats.
+   Uniquement a partir de 1100 px : empile sur mobile, l'auto-hauteur reste le bon mode
+   et une hauteur fixe y pietinerait le defilement de la page. */
+@media (min-width: 1100px) {
+  body.embarque .atelier { height: 820px; }
+  body.embarque .volet-regles,
+  body.embarque .volet-resultats {
+    max-height: 820px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  body.embarque .volet-resultats { padding-right: 6px; }
+}
+
+/* L'attribut hidden doit gagner contre nos propres display. Le bloc « colonne CSV » porte
+   aussi la classe .champ (display: flex) : une regle d'auteur ecrase le display:none que le
+   navigateur attache a [hidden], et l'element restait visible tout en se declarant cache. */
+[hidden] { display: none !important; }
