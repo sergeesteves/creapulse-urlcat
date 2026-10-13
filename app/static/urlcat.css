@@ -279,3 +279,40 @@ label.fichier input[type="file"]:focus-visible + .bouton {
   outline: 2px solid var(--cp-primary-fill);
   outline-offset: 2px;
 }
+
+/* --- Atelier : regles a gauche, resultats a droite --------------------------- */
+
+/* L'outil vit dans la colonne d'une page : il doit en prendre la largeur, pas se
+   brider a 860 px. */
+main { max-width: 1440px; }
+
+/* Les deux tableaux de synthese se replient d'eux-memes quand la place manque,
+   sans dependre de la largeur de la FENETRE : dans le volet de droite, la place
+   disponible n'a rien a voir avec le viewport. */
+.deux-colonnes { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+
+@media (min-width: 1100px) {
+  .atelier {
+    display: grid;
+    grid-template-columns: minmax(380px, 38%) 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  /* Le volet des regles reste sous les yeux pendant qu'on lit les resultats.
+     Sans ancetre defilant (iframe en auto-hauteur), sticky se neutralise tout
+     seul : la mise en page reste correcte, on perd seulement l'adherence. */
+  .volet-regles {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 4px;
+  }
+  .volet-regles textarea { min-height: 120px; }
+  /* Le filet de separation et le lien de retour ne servaient qu'a la disposition
+     empilee : cote a cote, ils n'ont plus d'objet. */
+  .volet-resultats .separation,
+  .volet-resultats .retour { display: none; }
+  .volet-resultats > .bilan { margin-top: 0; }
+}

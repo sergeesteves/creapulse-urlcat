@@ -453,3 +453,27 @@ def test_boutons_et_entetes_triables_presents(client):
     assert 'name="filtre_groupe"' in rep.text
     assert 'data-tri="nombre"' in rep.text             # colonne Nb triable
     assert 'class="triable"' in rep.text
+
+
+def test_les_deux_volets_existent_apres_classement(client):
+    """Regles a gauche, resultats a droite : la mise en page est faite en CSS, mais elle
+    repose sur ces deux conteneurs. Les perdre casserait la disposition sans rien casser
+    d'autre — donc sans que rien ne le signale."""
+    rep = client.post(f"{PREFIXE}/classer",
+                      data={"regles": REGLES, "urls": URLS, "sortie": "apercu", "ignore_dom": "1"})
+    assert 'class="atelier"' in rep.text
+    assert 'class="volet-regles"' in rep.text
+    assert 'class="volet-resultats"' in rep.text
+    # le formulaire est dans le volet de gauche, le tableau dans celui de droite
+    assert rep.text.index('volet-regles') < rep.text.index('name="regles"')
+    assert rep.text.index('volet-resultats') < rep.text.index('id="table-urls"')
+    assert rep.text.index('name="regles"') < rep.text.index('volet-resultats')
+
+
+def test_pas_de_volet_vide_avant_le_premier_classement(client):
+    """Sans resultat, pas de grille a deux colonnes : une colonne vide a droite serait
+    une invitation a chercher ce qui manque."""
+    rep = client.get(f"{PREFIXE}/")
+    assert 'class="atelier"' not in rep.text
+    assert 'class="volet-resultats"' not in rep.text
+    assert 'class="volet-regles"' in rep.text

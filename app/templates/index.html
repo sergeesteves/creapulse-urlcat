@@ -17,6 +17,8 @@
   <span class="aide" id="exemple-etat" role="status"></span>
 </p>
 
+{% if r %}<div class="atelier">{% endif %}
+<div class="volet-regles">
 <form method="post" action="{{ prefixe }}/classer#resultats" class="pile" id="form-classer">
   <input type="hidden" name="filtre_groupe" id="h-groupe" value="">
   <input type="hidden" name="filtre_univers" id="h-univers" value="">
@@ -48,7 +50,7 @@
       la colonne contenant les URLs vous sera proposée juste en dessous.
       Jusqu'à <strong>{{ "{:,}".format(plafond).replace(",", " ") }} URLs uniques</strong>
       {% if membre %}(plafond membre){% else %}par passage{% endif %}.</p>
-    <textarea id="urls" name="urls" rows="{% if r %}6{% else %}12{% endif %}" spellcheck="false"
+    <textarea id="urls" name="urls" rows="{% if r %}5{% else %}12{% endif %}" spellcheck="false"
       placeholder="https://exemple.fr/blog/mon-article&#10;https://exemple.fr/produit/42" required>{{ urls or "" }}</textarea>
   </div>
 
@@ -93,8 +95,10 @@
   limite d'URLs, et rien ne part sur le réseau.</p>
 </aside>
 {% endif %}
+</div>
 
 {% if r %}
+<div class="volet-resultats">
 <hr class="separation" id="resultats">
 
 <p class="retour"><a href="#regles">&uarr; Modifier les règles et reclasser</a></p>
@@ -213,6 +217,8 @@
     d'une autre, combien, et un exemple.</p>
   <pre class="rapport">{{ r.rapport }}</pre>
 </details>
+</div>
+</div>
 {% endif %}
 
 <script>
