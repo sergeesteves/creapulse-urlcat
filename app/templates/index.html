@@ -8,9 +8,32 @@
 <div class="encadre accent" role="alert">
   <p><strong>{{ erreur_titre }}</strong> {{ erreur_detail }}</p>
   <p class="aide">Vos règles et vos URLs sont conservées ci-dessous : corrigez, puis reclassez.</p>
+  {% if auth_requise and url_connexion %}
+  <p><a class="bouton cta" href="{{ url_connexion }}">Se reconnecter</a></p>
+  {% endif %}
 </div>
 {% endif %}
 
+{% if auth_requise and not regles %}
+<section class="invitation">
+  <h2>urlcat est gratuit, et il demande un compte</h2>
+  <p>Vous collez vos URLs d'audit et un fichier de règles ; l'outil les range sur deux axes
+    indépendants — <strong>la structure</strong> (quelle rubrique) et <strong>l'univers</strong>
+    (quel thème) — puis vous dit combien d'URLs par groupe, quelle règle a gagné, et
+    <strong>quelle règle n'a jamais rien classé</strong>. On itère : on corrige les règles, on
+    reclasse, jusqu'à ce que la catégorisation tienne.</p>
+  <p>Le compte est gratuit. Il sert à vous reconnaître d'une session à l'autre, à vous donner
+    un plafond plus haut ({{ "{:,}".format(plafond_membre).replace(",", " ") }} URLs par
+    passage) et à garder le serveur utilisable pour tout le monde.</p>
+  <p class="actions">
+    {% if url_connexion %}<a class="bouton cta" href="{{ url_connexion }}">Se connecter</a>{% endif %}
+    {% if url_inscription %}<a class="bouton secondary" href="{{ url_inscription }}">Créer un compte</a>{% endif %}
+  </p>
+  <p class="aide">Vous préférez ne rien envoyer ? Le script tourne chez vous, sans compte et
+    sans limite d'URLs :
+    <a href="https://github.com/sergeesteves/creapulse-urlcat">github.com/sergeesteves/creapulse-urlcat</a>.</p>
+</section>
+{% else %}
 <p class="amorce">
   {% if not r %}Première fois ?{% endif %}
   <button type="button" class="bouton quiet" id="charger-exemple">Charger un exemple</button>
@@ -22,7 +45,7 @@
 <form method="post" action="{{ prefixe }}/classer{% if embed %}?embed=1{% endif %}#resultats" class="pile" id="form-classer">
   <input type="hidden" name="filtre_groupe" id="h-groupe" value="">
   <input type="hidden" name="filtre_univers" id="h-univers" value="">
-  <div class="champ">
+  <div class="champ champ-regles">
     <div class="entete-champ">
       <label for="regles">Fichier de règles</label>
       <label class="fichier">
@@ -102,6 +125,7 @@
 </aside>
 {% endif %}
 </div>
+{% endif %}
 
 {% if r %}
 <div class="volet-resultats">

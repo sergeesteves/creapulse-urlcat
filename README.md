@@ -107,12 +107,38 @@ Puis `http://127.0.0.1:8000/outils/urlcat/`.
 
 ### Variables d'environnement
 
-Voir `.env.example`. Les deux qui comptent :
+Voir `.env.example`. Celles qui comptent :
 
 | Variable | Rôle |
 | --- | --- |
 | `ROOT_PATH` | préfixe public (`/outils/urlcat`). Doit correspondre au chemin du FQDN Coolify. |
 | `WP_TOKEN_SECRET` | **même valeur** que `CREAPULSE_TOOLS_TOKEN_SECRET` côté WordPress, 64 caractères. Sans elle, tout le monde est anonyme. |
+| `AUTH_MODE` | `optional` (défaut) ou `required`. Voir ci-dessous. |
+| `WP_LOGIN_URL`, `WP_REGISTER_URL` | secours, en `required`, quand l'app est atteinte hors iframe : l'iframe porte ces adresses dans sa query string, un accès direct non. |
+
+### Le mode d'accès
+
+`AUTH_MODE=optional` : l'outil s'utilise sans compte, avec le plafond anonyme ; un membre
+reconnu par son jeton obtient le plafond membre.
+
+`AUTH_MODE=required` : l'outil **reste gratuit**, mais il faut un compte. Sans session,
+l'app rend une invitation qui dit ce que l'outil fait, avec les boutons de connexion et
+d'inscription — et `POST /classer` est refusé en 403.
+
+Ce refus porte sur l'**accès direct** à l'app, pas seulement sur l'affichage du formulaire
+dans la page : sans lui, quiconque connaît l'adresse de l'app s'en sert sans compte
+(leçon `modes-acces-outil-2-barrieres`). Il **rend la page avec les champs intacts** : une
+session qui expire au milieu d'une mise au point ne doit jamais emporter le fichier de
+règles en cours.
+
+Les adresses `login_url` et `register_url` arrivent par la query string de l'iframe. Elles
+ne sont reprises dans un lien **que si elles mènent au même hôte** que la page : les
+refléter telles quelles laisserait fabriquer une adresse de l'outil dont le bouton « Se
+connecter » mène ailleurs. Une valeur étrangère est ignorée, et le secours s'applique.
+
+Toute autre valeur que `optional` ou `required` retombe sur `optional` : une faute de frappe
+ne doit ni ouvrir ni fermer l'accès par accident. `/health` annonce `mode_acces`, pour
+vérifier après un déploiement sans avoir à se connecter.
 
 ### Le préfixe
 

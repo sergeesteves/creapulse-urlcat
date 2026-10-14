@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from urllib.parse import urlencode
+import pathlib
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -69,6 +70,45 @@ def _url_publique(request: Request, *, sans: str | None = None) -> str:
     return chemin + ("?" + urlencode(params) if params else "")
 
 
+def _version_css() -> str:
+    """Empreinte de la feuille de style, posee dans son adresse.
+
+    Sans elle, l'adresse du CSS ne change jamais d'un deploiement a l'autre : le
+    navigateur d'un visiteur garde l'ancienne version, et une correction d'affichage
+    reste invisible chez lui alors qu'elle est en ligne. Calculee au demarrage, ce qui
+    suffit — le conteneur redemarre a chaque deploiement.
+    """
+    try:
+        etat = (pathlib.Path(__file__).parent / "static" / "urlcat.css").stat()
+        return "%x" % (int(etat.st_mtime) ^ int(etat.st_size))
+    except OSError:
+        return "0"
+
+
+VERSION_CSS = _version_css()
+
+
+def _lien_du_site(request: Request, brut: str | None) -> str:
+    """N'accepte une adresse que si elle mene au SITE QUI PORTE la page.
+
+    `login_url` et `register_url` arrivent par la query string de l'iframe. Les refleter
+    telles quelles dans un href laisserait n'importe qui fabriquer une adresse de l'outil
+    dont le bouton « Se connecter » mene a sa propre page de collecte, aux couleurs du
+    site. On n'autorise donc qu'un chemin relatif ou le meme hote que la requete.
+    """
+    if not brut:
+        return ""
+    brut = brut.strip()
+    if brut.startswith("/") and not brut.startswith("//"):
+        return brut
+    decoupe = urlsplit(brut)
+    if decoupe.scheme not in ("http", "https") or not decoupe.netloc:
+        return ""
+    if decoupe.netloc.lower() != (request.url.netloc or "").lower():
+        return ""
+    return brut
+
+
 def _membre(request: Request) -> dict | None:
     return session.decode(request.cookies.get(session.COOKIE))
 
@@ -83,6 +123,13 @@ def _contexte(request: Request, **extra) -> dict:
         "plafond": settings.plafond(bool(membre)),
         "plafond_anon": settings.max_urls_anon,
         "plafond_membre": settings.max_urls_membre,
+        "version_css": VERSION_CSS,
+        "compte_obligatoire": settings.compte_obligatoire,
+        "auth_requise": settings.compte_obligatoire and not membre,
+        "url_connexion": _lien_du_site(request, request.query_params.get("login_url"))
+                         or settings.wp_login_url,
+        "url_inscription": _lien_du_site(request, request.query_params.get("register_url"))
+                           or settings.wp_register_url,
     }
     base.update(extra)
     return base
@@ -113,6 +160,7 @@ def health() -> JSONResponse:
         "plafond_anon": settings.max_urls_anon,
         "plafond_membre": settings.max_urls_membre,
         "places": settings.max_concurrent,
+        "mode_acces": settings.auth_mode,
         "jeton_configure": bool(settings.wp_token_secret),
         "session_configuree": bool(settings.session_secret),
     })
@@ -164,6 +212,16 @@ def classer(
         """Rend la page avec les champs intacts : perdre un fichier de regles en cours
         de mise au point serait le pire defaut possible pour cet outil."""
         return _rendu(request, status_code=code, erreur_titre=titre, erreur_detail=detail, **saisie)
+
+    # Le compte est exige : on refuse l'acces DIRECT a l'app, pas seulement l'affichage
+    # du formulaire dans la page. Sans ce controle, qui connait l'adresse de l'app s'en
+    # sert sans compte (lecon modes-acces-outil-2-barrieres).
+    # Et on refuse en RENDANT la page : une session qui expire au milieu d'une mise au
+    # point ne doit pas emporter le fichier de regles.
+    if settings.compte_obligatoire and not _membre(request):
+        return refus(403, "Votre session a expire",
+                     "Reconnectez-vous, puis reclassez : vos regles et vos URLs sont "
+                     "toujours la, juste en dessous.")
 
     if not regles or not urls:
         return refus(400, "Il manque quelque chose",

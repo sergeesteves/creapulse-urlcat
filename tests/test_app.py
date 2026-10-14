@@ -196,7 +196,10 @@ def test_formulaire_sert_le_css_derriere_le_prefixe(client):
     """Piege vecu sur le premier deploiement du generateur de voix : CSS en 404."""
     rep = client.get(f"{PREFIXE}/")
     assert rep.status_code == 200
-    assert f'href="{PREFIXE}/static/urlcat.css"' in rep.text
+    # L'adresse porte l'empreinte du fichier : sans elle, le navigateur d'un visiteur
+    # garde l'ancienne feuille apres un deploiement, et la correction reste invisible
+    # chez lui alors qu'elle est en ligne.
+    assert f'href="{PREFIXE}/static/urlcat.css?v=' in rep.text
     assert client.get(f"{PREFIXE}/static/urlcat.css").status_code == 200
 
 
@@ -570,3 +573,76 @@ def test_le_mode_embarque_survit_au_classement(client):
     rep = client.get(f"{PREFIXE}/")
     assert 'action="/outils/urlcat/classer#resultats"' in rep.text
     assert "<h1>" in rep.text
+
+
+# --------------------------------------------------------------------------- #
+# Mode d'acces « required » : l'outil reste gratuit, mais il demande un compte
+# --------------------------------------------------------------------------- #
+
+@pytest.fixture
+def client_compte_requis(monkeypatch):
+    """Meme application, mode d'acces « required ».
+
+    `settings` est un dataclass gele : on en fabrique une copie et on la substitue dans
+    le module qui la lit, plutot que de la muter.
+    """
+    import dataclasses
+
+    from app import main as module_main
+    monkeypatch.setattr(module_main, "settings",
+                        dataclasses.replace(module_main.settings, auth_mode="required"))
+    with TestClient(module_main.app) as c:
+        yield c
+
+
+def test_sans_compte_le_formulaire_nest_pas_rendu(client_compte_requis):
+    """Le formulaire ne doit pas etre la : le cacher en CSS laisserait un POST possible,
+    et surtout laisserait croire que l'outil s'utilise."""
+    rep = client_compte_requis.get(f"{PREFIXE}/")
+    assert rep.status_code == 200
+    assert 'id="form-classer"' not in rep.text
+    assert "demande un compte" in rep.text
+    # L'invitation dit ce que l'outil FAIT : c'est la seule page que verra un visiteur.
+    assert "deux axes" in rep.text
+
+
+def test_sans_compte_le_classement_est_refuse_mais_la_saisie_survit(client_compte_requis):
+    """Le controle porte sur l'acces DIRECT a l'app, pas seulement sur l'affichage du
+    formulaire — sinon qui connait l'adresse s'en sert sans compte. Et le refus rend la
+    page : une session qui expire en pleine mise au point ne doit rien emporter."""
+    rep = client_compte_requis.post(
+        f"{PREFIXE}/classer",
+        data={"regles": REGLES, "urls": URLS, "sortie": "apercu", "ignore_dom": "1"})
+    assert rep.status_code == 403
+    assert "session a expir" in rep.text
+    assert "/blog/*" in rep.text, "les regles doivent etre reaffichees"
+
+
+def test_un_mode_dacces_inconnu_retombe_sur_optional():
+    """Une faute de frappe dans la variable d'environnement ne doit ni ouvrir ni fermer
+    l'acces par accident : elle retombe sur le mode declare par defaut."""
+    import dataclasses
+
+    from app.config import Settings, _mode
+    assert _mode("VARIABLE_QUI_NEXISTE_PAS", "optional") == "optional"
+    assert dataclasses.replace(Settings(), auth_mode="required").compte_obligatoire is True
+    assert Settings().compte_obligatoire is False
+
+
+def test_le_lien_de_connexion_ne_peut_pas_sortir_du_site(client_compte_requis):
+    """`login_url` arrive par la query string : le refleter tel quel laisserait fabriquer
+    une adresse de l'outil dont le bouton « Se connecter » mene ailleurs."""
+    rep = client_compte_requis.get(
+        f"{PREFIXE}/?login_url=https://exemple-malveillant.test/collecte")
+    assert "exemple-malveillant.test" not in rep.text
+
+    # Une adresse du site, elle, passe.
+    interne = client_compte_requis.get(f"{PREFIXE}/?login_url=/login/%3Fredirect%3D1")
+    assert 'href="/login/?redirect=1"' in interne.text
+
+
+def test_le_mode_dacces_est_annonce_par_health(client_compte_requis):
+    """Pour verifier depuis l'exterieur, apres un deploiement, que la variable est bien
+    posee — sans avoir a se connecter."""
+    rep = client_compte_requis.get(f"{PREFIXE}/health")
+    assert rep.json()["mode_acces"] == "required"

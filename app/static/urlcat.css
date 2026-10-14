@@ -331,13 +331,34 @@ main { max-width: 1440px; }
      regles (20 lignes depuis que la liste d'URLs se replie) tient maintenant en entier,
      et seul le tableau des URLs defile, ce qui est son role. */
   body.embarque .atelier { height: 980px; }
-  body.embarque .volet-regles,
   body.embarque .volet-resultats {
     max-height: 980px;
     overflow-y: auto;
     overscroll-behavior: contain;
+    padding-right: 6px;
   }
-  body.embarque .volet-resultats { padding-right: 6px; }
+
+  /* Le volet de gauche ne defile pas : il REMPLIT sa hauteur. Le formulaire devient une
+     colonne souple et la zone de regles absorbe la place restante, si bien que le bouton
+     « Reclasser » tombe au bas du volet, aligne sur le bas de la colonne des resultats.
+     Avant, la zone de regles avait une hauteur fixe (20 lignes) : elle depassait de six
+     pixels, ce qui lui valait une barre de defilement entiere, et le bas du volet restait
+     vide. Deplier la liste d'URLs retrecit la zone de regles au lieu de faire defiler. */
+  body.embarque .volet-regles {
+    height: 980px;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  body.embarque .volet-regles > form {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  body.embarque .champ-regles { flex: 1 1 auto; min-height: 160px; }
+  body.embarque .champ-regles textarea { flex: 1 1 auto; min-height: 0; }
 }
 
 /* L'attribut hidden doit gagner contre nos propres display. Le bloc « colonne CSV » porte
@@ -367,3 +388,17 @@ main { max-width: 1440px; }
 .bloc-urls .compte { font-weight: 400; font-size: 0.85rem; color: var(--cp-muted); }
 
 .lecture-chiffres { margin-top: 10px; }
+
+/* L'invitation a se connecter : c'est la seule chose qu'un visiteur sans compte voit, elle
+   doit donc dire ce que l'outil fait, pas seulement demander un compte. Un seul element
+   accentue — le bouton « Se connecter » — conformement a la charte. */
+.invitation {
+  border: 1px solid var(--cp-rule);
+  border-radius: var(--r-box);
+  padding: 24px 26px;
+  background: var(--cp-surface-subtle);
+  max-width: 780px;
+}
+.invitation h2 { margin-top: 0; }
+.invitation .actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0 16px; }
+.invitation .aide { margin-bottom: 0; }
