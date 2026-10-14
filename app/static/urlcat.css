@@ -322,14 +322,18 @@ main { max-width: 1440px; }
    neutralise. On donne donc a l'atelier une hauteur FIXE (pas en vh : dans une iframe
    auto-hauteur, 100vh vaut la hauteur du contenu, le calcul tournerait en rond), et
    chaque volet defile chez lui. L'iframe annonce alors une hauteur stable d'environ
-   900 px, et la page parente n'a pas a defiler pour passer des regles aux resultats.
+   1 060 px, et la page parente n'a pas a defiler pour passer des regles aux resultats.
    Uniquement a partir de 1100 px : empile sur mobile, l'auto-hauteur reste le bon mode
    et une hauteur fixe y pietinerait le defilement de la page. */
 @media (min-width: 1100px) {
-  body.embarque .atelier { height: 820px; }
+  /* 980 et non 820 : a 820, le volet de gauche depassait de SIX pixels et gagnait sa
+     propre barre de defilement — deux barres a l'ecran pour six pixels. Le fichier de
+     regles (20 lignes depuis que la liste d'URLs se replie) tient maintenant en entier,
+     et seul le tableau des URLs defile, ce qui est son role. */
+  body.embarque .atelier { height: 980px; }
   body.embarque .volet-regles,
   body.embarque .volet-resultats {
-    max-height: 820px;
+    max-height: 980px;
     overflow-y: auto;
     overscroll-behavior: contain;
   }
