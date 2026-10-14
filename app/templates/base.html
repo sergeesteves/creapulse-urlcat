@@ -20,17 +20,57 @@
 (function () {
   if (window.parent === window) return;
   var dernier = 0;
+  var prevu = false;
+
+  // On mesure la BOITE DU CONTENU, pas scrollHeight. Car
+  // document.documentElement.scrollHeight ne descend jamais sous la hauteur du
+  // viewport — donc sous la hauteur deja donnee a l'iframe : une fois l'iframe
+  // agrandie, la hauteur annoncee ne pouvait plus diminuer, et la page parente
+  // gardait un grand vide sous l'outil quand le contenu raccourcissait (liste
+  // d'URLs repliee, atelier a hauteur fixe). Edge le montrait, Chrome le cachait
+  // au gre de l'ordre des mesures : le cliquet etait la dans les deux.
+  function hauteurContenu() {
+    var corps = document.body;
+    var bas = 0;
+    for (var i = 0; i < corps.children.length; i++) {
+      var e = corps.children[i];
+      if (!e.getClientRects().length) continue;   // cache, ou hors flux
+      var style = window.getComputedStyle(e);
+      if (style.position === 'fixed') continue;   // ne compte pas dans le flux
+      var marge = parseFloat(style.marginBottom) || 0;
+      bas = Math.max(bas, e.getBoundingClientRect().bottom + marge);
+    }
+    var mc = parseFloat(window.getComputedStyle(corps).marginBottom) || 0;
+    return bas + window.scrollY + mc;
+  }
+
   function annoncer() {
-    var h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-    h = Math.min(3000, Math.max(200, Math.ceil(h) + 8));
+    var h = Math.min(3000, Math.max(200, Math.ceil(hauteurContenu()) + 8));
     if (Math.abs(h - dernier) < 8) return;
     dernier = h;
     window.parent.postMessage({ type: 'vsg-height', height: h }, '*');
   }
-  window.addEventListener('load', annoncer);
-  window.addEventListener('resize', annoncer);
-  if (window.ResizeObserver) new ResizeObserver(annoncer).observe(document.body);
-  setTimeout(annoncer, 60);
+
+  // Une seule mesure par salve : l'observateur se declenche en rafale pendant la mise
+  // en page, et mesurer dans sa propre callback relancerait la boucle. Un minuteur,
+  // pas requestAnimationFrame : dans un onglet d'arriere-plan, rAF ne tourne pas, et
+  // l'iframe resterait a sa hauteur initiale jusqu'a ce qu'on vienne la regarder.
+  function programmer() {
+    if (prevu) return;
+    prevu = true;
+    setTimeout(function () { prevu = false; annoncer(); }, 50);
+  }
+
+  window.addEventListener('load', programmer);
+  window.addEventListener('resize', programmer);
+  // Replier un <details> ne change ni la taille du corps ni le viewport : sans cet
+  // ecouteur, la hauteur resterait celle du bloc deplie.
+  document.addEventListener('toggle', programmer, true);
+  if (window.ResizeObserver) new ResizeObserver(programmer).observe(document.body);
+  // Les polices Google arrivent apres le load et decalent la mise en page.
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(programmer);
+  setTimeout(programmer, 60);
+  setTimeout(programmer, 400);
 })();
 </script>
 </body>

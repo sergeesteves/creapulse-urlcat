@@ -340,3 +340,26 @@ main { max-width: 1440px; }
    aussi la classe .champ (display: flex) : une regle d'auteur ecrase le display:none que le
    navigateur attache a [hidden], et l'element restait visible tout en se declarant cache. */
 [hidden] { display: none !important; }
+
+/* La liste d'URLs ne sert plus a rien une fois les URLs chargees : elle se replie apres
+   l'analyse, et le fichier de regles — celui sur lequel on itere — recupere la hauteur.
+   Le resume porte le nombre de lignes chargees, pour qu'on le sache sans deplier : c'est
+   aussi ce qui explique l'ecart entre « lignes chargees » et « URLs uniques ». */
+.bloc-urls {
+  border: 1px solid var(--cp-rule);
+  border-radius: var(--r-box);
+  padding: 10px 12px;
+  background: var(--cp-surface-subtle);
+}
+.bloc-urls > summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bloc-urls[open] > summary { margin-bottom: 12px; }
+.bloc-urls .compte { font-weight: 400; font-size: 0.85rem; color: var(--cp-muted); }
+
+.lecture-chiffres { margin-top: 10px; }

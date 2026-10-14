@@ -251,17 +251,62 @@ def test_filtres_et_rapport_replie(client):
     assert rep.text.index("table-urls") < rep.text.index("Rapport complet et diagnostic")
 
 
-def test_apercu_stratifie_garde_les_petits_groupes():
-    """Un echantillon des N premieres lignes ferait disparaitre un petit groupe derriere
-    un gros. Le panel stratifie garantit qu'aucun groupe n'est absent de l'apercu."""
+def test_par_defaut_tout_est_affiche():
+    """Le defaut doit etre « tout » : un echantillon impose obligeait a expliquer une
+    mecanique invisible (« 7 lignes sur 19 dans l'apercu »), alors que sur un corpus
+    courant tout tient a l'ecran."""
     # 100 URLs : MAX_URLS_BYTES est volontairement bas dans ces tests (4 Kio).
     lignes = ["https://exemple.fr/blog/%d" % i for i in range(100)]
     lignes.append("https://exemple.fr/contact")        # groupe « autres », une seule URL
-    resultat = engine.classer(REGLES, "\n".join(lignes), plafond=1000, apercu_par_couple=20)
-    groupes_apercu = {r["groupe"] for r in resultat.apercu}
-    assert "autres" in groupes_apercu, "le petit groupe a disparu de l'apercu"
-    assert "blog" in groupes_apercu
-    assert len(resultat.apercu) < resultat.total_urls   # c'est bien un echantillon
+    resultat = engine.classer(REGLES, "\n".join(lignes), plafond=1000)
+    assert resultat.panel_demande == "tout"
+    assert resultat.panel_applique == "tout"
+    assert len(resultat.apercu) == resultat.total_urls == 101
+
+
+def test_le_panel_demande_reduit_laffichage_et_se_declare():
+    """Choisir 10 % doit se voir dans les lignes ET dans ce que le resultat declare :
+    c'est ce champ qui permet a la page de dire quel echantillon elle montre."""
+    lignes = ["https://exemple.fr/blog/%d" % i for i in range(100)]
+    resultat = engine.classer(REGLES, "\n".join(lignes), plafond=1000, panel="10")
+    assert resultat.panel_demande == resultat.panel_applique == "10"
+    assert len(resultat.apercu) == 10
+    assert len(resultat.rows) == 100, "le classement reste complet derriere l'affichage"
+
+    moitie = engine.classer(REGLES, "\n".join(lignes), plafond=1000, panel="50")
+    assert len(moitie.apercu) == 50
+
+
+def test_le_tirage_du_panel_est_reproductible():
+    """Meme corpus, meme echantillon : sinon reclasser apres avoir corrige une regle
+    changerait les URLs affichees, et on ne saurait plus ce qu'on compare."""
+    lignes = ["https://exemple.fr/blog/%d" % i for i in range(100)]
+    a = engine.classer(REGLES, "\n".join(lignes), plafond=1000, panel="10")
+    b = engine.classer(REGLES, "\n".join(lignes), plafond=1000, panel="10")
+    assert [r["url"] for r in a.apercu] == [r["url"] for r in b.apercu]
+
+
+def test_un_panel_inconnu_retombe_sur_tout():
+    """Le panel vient d'un champ de formulaire : une valeur fabriquee a la main ne doit
+    pas faire tomber la requete, juste revenir au defaut."""
+    resultat = engine.classer(REGLES, URLS, plafond=1000, panel="42")
+    assert resultat.panel_demande == "tout"
+
+
+def test_au_dela_du_plafond_dapercu_aucun_groupe_ne_disparait():
+    """Le filet automatique, teste sur _apercu : au-dela d'APERCU_MAX, un tableau complet
+    serait ingerable, et garder les N premieres lignes ferait disparaitre un petit groupe
+    derriere un gros. On garde donc les plus vues de CHAQUE couple, et on le declare —
+    « par-groupe » — pour que la page puisse le dire au lieu de rogner en silence."""
+    rows = [{"url": "https://exemple.fr/blog/%d" % i, "groupe": "blog",
+             "univers": "editorial", "nombre": 1}
+            for i in range(engine.APERCU_MAX * 2)]
+    rows.append({"url": "https://exemple.fr/contact", "groupe": "autres",
+                 "univers": "autres", "nombre": 3})
+    apercu, applique = engine._apercu(rows, "tout")
+    assert applique == "par-groupe"
+    assert len(apercu) <= engine.APERCU_MAX
+    assert {r["groupe"] for r in apercu} == {"blog", "autres"}
 
 
 def test_classement_csv(client):
@@ -384,11 +429,11 @@ def test_lexport_filtre_depasse_lapercu():
     difference est observable (le plafond anonyme des tests est volontairement a 10)."""
     lignes = ["https://exemple.fr/blog/%d" % i for i in range(60)]
     lignes.append("https://exemple.fr/contact")
-    resultat = engine.classer(REGLES, "\n".join(lignes), plafond=1000, apercu_par_couple=10)
+    resultat = engine.classer(REGLES, "\n".join(lignes), plafond=1000, panel="10")
 
     dans_apercu = [r for r in resultat.apercu if r["groupe"] == "blog"]
     a_exporter = engine.filtrer(resultat.rows, groupe="blog")
-    assert len(dans_apercu) == 10
+    assert len(dans_apercu) < 60, "l'affichage est bien reduit par le panel"
     assert len(a_exporter) == 60, "l'export porte sur la totalite du groupe, pas sur l'apercu"
     assert all(r["groupe"] == "blog" for r in a_exporter)
 
@@ -427,22 +472,57 @@ def test_export_sans_filtre_rend_tout(client):
     assert len(lignes) == 1 + 3   # en-tete + les 3 URLs uniques du jeu de test
 
 
-def test_apercu_garde_les_urls_les_plus_vues(client):
-    """Trier par nombre un tirage aleatoire donnerait « les plus frequentes parmi celles
-    tirees au hasard ». L'apercu garde donc les plus vues de chaque couple, ce qui rend
-    le tri par nombre honnete."""
-    lignes = []
-    for i in range(30):
-        lignes.append("https://exemple.fr/blog/rare-%d" % i)       # 1 occurrence
-    lignes += ["https://exemple.fr/blog/vedette"] * 25             # 25 occurrences
-    lignes += ["https://exemple.fr/blog/second"] * 12              # 12 occurrences
+def test_le_filet_par_groupe_garde_les_urls_les_plus_vues():
+    """Quand le filet par groupe s'enclenche, il garde les plus VUES de chaque couple, pas
+    un tirage au hasard : trier par nombre un tirage aleatoire donnerait « les plus
+    frequentes parmi celles tirees au hasard », ce qui n'est pas la meme chose."""
+    rows = [{"url": "https://exemple.fr/blog/rare-%d" % i, "groupe": "blog",
+             "univers": "editorial", "nombre": 1}
+            for i in range(engine.APERCU_MAX * 2)]
+    rows.append({"url": "https://exemple.fr/blog/vedette", "groupe": "blog",
+                 "univers": "editorial", "nombre": 25})
+    rows.append({"url": "https://exemple.fr/blog/second", "groupe": "blog",
+                 "univers": "editorial", "nombre": 12})
 
-    resultat = engine.classer(REGLES, "\n".join(lignes), plafond=1000, apercu_par_couple=5)
-    urls = [r["url"] for r in resultat.apercu if r["groupe"] == "blog"]
+    apercu, applique = engine._apercu(rows, "tout")
+    assert applique == "par-groupe"
+    urls = [r["url"] for r in apercu]
     assert "https://exemple.fr/blog/vedette" in urls
     assert "https://exemple.fr/blog/second" in urls
-    nombres = [r["nombre"] for r in resultat.apercu if r["groupe"] == "blog"]
+    nombres = [r["nombre"] for r in apercu]
     assert nombres == sorted(nombres, reverse=True)
+
+
+def test_le_selecteur_de_panel_est_servi_et_poste_avec_le_formulaire(client):
+    """Le panel se decide cote serveur (seul lui a toutes les lignes) : la liste doit donc
+    etre associee au formulaire de classement par form=, sinon changer le panel ne poste
+    rien et l'affichage ne bouge pas."""
+    rep = client.post(f"{PREFIXE}/classer",
+                      data={"regles": REGLES, "urls": URLS, "sortie": "apercu", "ignore_dom": "1"})
+    assert 'id="f-panel"' in rep.text
+    assert 'name="panel" form="form-classer"' in rep.text
+    # Et le message dit ce qu'il montre, en clair, plutot que « N ligne(s) dans l'apercu ».
+    assert "URLs uniques</strong> sont" in rep.text
+    assert "dans l’aperçu" not in rep.text
+
+    reduit = client.post(f"{PREFIXE}/classer",
+                         data={"regles": REGLES, "urls": URLS, "sortie": "apercu",
+                               "ignore_dom": "1", "panel": "50"})
+    assert "URLs affichées" in reduit.text
+    assert 'value="50" selected' in reduit.text
+
+
+def test_la_liste_durls_se_replie_apres_lanalyse(client):
+    """Une fois les URLs chargees, la zone ne sert plus a rien pendant qu'on itere sur les
+    regles : elle doit se replier pour rendre la hauteur au fichier de regles."""
+    vierge = client.get(f"{PREFIXE}/")
+    assert '<details class="bloc-urls" open>' in vierge.text
+
+    apres = client.post(f"{PREFIXE}/classer",
+                        data={"regles": REGLES, "urls": URLS, "sortie": "apercu",
+                              "ignore_dom": "1"})
+    assert '<details class="bloc-urls" >' in apres.text
+    assert 'id="compte-urls"' in apres.text
 
 
 def test_boutons_et_entetes_triables_presents(client):

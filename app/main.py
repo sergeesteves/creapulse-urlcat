@@ -152,11 +152,13 @@ def classer(
     sortie: str = Form("apercu"),
     filtre_groupe: str = Form(""),
     filtre_univers: str = Form(""),
+    panel: str = Form("tout"),
 ):
     """Route synchrone volontairement : FastAPI l'execute dans un thread, et le classement
     est CPU-bound. La concurrence reelle est bornee par le semaphore du moteur."""
     regles, urls = regles.strip(), urls.strip()
-    saisie = {"regles": regles, "urls": urls, "url_column": url_column, "ignore_dom": ignore_dom}
+    saisie = {"regles": regles, "urls": urls, "url_column": url_column,
+              "ignore_dom": ignore_dom, "panel": panel}
 
     def refus(code: int, titre: str, detail: str) -> Response:
         """Rend la page avec les champs intacts : perdre un fichier de regles en cours
@@ -174,6 +176,7 @@ def classer(
             plafond=plafond,
             url_column=url_column.strip() or None,
             ignore_dom=bool(ignore_dom),
+            panel=panel,
         )
     except engine.TropDUrls as exc:
         return refus(413, "Trop d'URLs pour la version en ligne",

@@ -33,13 +33,18 @@
     <p class="aide">Sections <code>[crawl:categories]</code> et <code>[crawl:univers]</code>.
       Ouvrez votre fichier ou collez-le ici, puis corrigez et reclassez autant de fois qu'il
       faut — une bonne catégorisation s'obtient rarement du premier coup.</p>
-    <textarea id="regles" name="regles" rows="14" spellcheck="false"
+    <textarea id="regles" name="regles" rows="{% if r %}20{% else %}14{% endif %}" spellcheck="false"
       placeholder="[crawl:categories]&#10;&#10;@names&#10;100	site&#10;&#10;@&#10;path /blog/*&#10;name blog&#10;parent-id	100" required>{{ regles or "" }}</textarea>
   </div>
 
+  <details class="bloc-urls" {% if not r %}open{% endif %}>
+  <summary>
+    <span>Liste d'URLs</span>
+    <span class="compte" id="compte-urls"></span>
+  </summary>
   <div class="champ">
     <div class="entete-champ">
-      <label for="urls">Liste d'URLs</label>
+      <label for="urls">Le corpus à classer</label>
       <label class="fichier">
         <input type="file" id="fichier-urls" accept=".txt,.csv,.tsv,text/plain,text/csv">
         <span class="bouton quiet">Ouvrir un fichier…</span>
@@ -50,9 +55,10 @@
       la colonne contenant les URLs vous sera proposée juste en dessous.
       Jusqu'à <strong>{{ "{:,}".format(plafond).replace(",", " ") }} URLs uniques</strong>
       {% if membre %}(plafond membre){% else %}par passage{% endif %}.</p>
-    <textarea id="urls" name="urls" rows="{% if r %}5{% else %}12{% endif %}" spellcheck="false"
+    <textarea id="urls" name="urls" rows="12" spellcheck="false"
       placeholder="https://exemple.fr/blog/mon-article&#10;https://exemple.fr/produit/42" required>{{ urls or "" }}</textarea>
   </div>
+  </details>
 
   <div class="champ colonne-csv" id="bloc-colonne" {% if not url_column %}hidden{% endif %}>
     <label for="url_column">Colonne contenant les URLs</label>
@@ -109,6 +115,13 @@
   <div class="chiffre"><strong>{{ r.groupes | length }}</strong><span>groupes</span></div>
   <div class="chiffre"><strong>{{ r.univers | length }}</strong><span>univers</span></div>
 </div>
+
+<p class="aide lecture-chiffres">
+  <strong>{{ "{:,}".format(r.total_occurrences).replace(",", " ") }} lignes</strong> ont été lues et
+  ramenées à <strong>{{ "{:,}".format(r.total_urls).replace(",", " ") }} URLs uniques</strong> :
+  une URL vue plusieurs fois n'est classée qu'une fois, et ses passages sont comptés dans la
+  colonne <code>Nb</code>.
+</p>
 
 {% if r.regles_sans_objet %}
 <div class="encadre accent">
@@ -178,7 +191,14 @@
   <label>Contient
     <input type="search" id="f-texte" placeholder="fragment d'URL ou de motif">
   </label>
-  <button type="button" class="bouton quiet" id="f-reset">Tout afficher</button>
+  <label>Afficher
+    <select id="f-panel" name="panel" form="form-classer">
+      <option value="tout" {% if r.panel_demande == 'tout' %}selected{% endif %}>toutes les URLs</option>
+      <option value="50" {% if r.panel_demande == '50' %}selected{% endif %}>50 % (échantillon)</option>
+      <option value="10" {% if r.panel_demande == '10' %}selected{% endif %}>10 % (échantillon)</option>
+    </select>
+  </label>
+  <button type="button" class="bouton quiet" id="f-reset">Enlever les filtres</button>
   <button type="submit" form="form-classer" name="sortie" value="csv"
           class="bouton secondary" id="f-export">Exporter le classement (CSV)</button>
   <span class="aide" id="f-compte" role="status"></span>
@@ -201,14 +221,22 @@
 </table>
 
 <p class="aide">
-  {{ r.apercu | length }} ligne(s) dans l'aperçu, sur {{ "{:,}".format(r.total_urls).replace(",", " ") }} URLs uniques.
-  {% if r.apercu | length < r.total_urls %}
-  C'est un <strong>échantillon stratifié</strong> : les {{ r.apercu_par_couple }} URLs les plus vues
-  de chaque couple groupe × univers, pour qu'un petit groupe reste visible derrière un gros et que
-  le tri par nombre reste honnête. Les comptages des tableaux ci-dessus et le CSV, eux, portent sur
-  la totalité — « Télécharger ces URLs » exporte <strong>toutes</strong> les URLs du filtre actif,
-  pas seulement celles affichées.
+  {% if r.panel_applique == 'tout' %}
+    Les <strong>{{ "{:,}".format(r.total_urls).replace(",", " ") }} URLs uniques</strong> sont
+    affichées, sans échantillonnage.
+  {% elif r.panel_applique == 'par-groupe' %}
+    <strong>{{ "{:,}".format(r.apercu | length).replace(",", " ") }} URLs affichées</strong> sur
+    {{ "{:,}".format(r.total_urls).replace(",", " ") }}. Les afficher toutes rendrait le tableau
+    inutilisable, alors l'échantillon est pris <strong>par groupe</strong> — les plus vues de
+    chacun — pour qu'aucun groupe ne disparaisse de l'écran.
+  {% else %}
+    <strong>{{ "{:,}".format(r.apercu | length).replace(",", " ") }} URLs affichées</strong> sur
+    {{ "{:,}".format(r.total_urls).replace(",", " ") }}, soit l'échantillon de
+    {{ r.panel_applique }} % que vous avez choisi. Tirage uniforme et reproductible : le même
+    corpus donne le même échantillon.
   {% endif %}
+  Les comptages des tableaux ci-dessus portent sur la <strong>totalité</strong>, et l'export CSV
+  aussi — il n'est jamais limité à ce qui est affiché.
 </p>
 
 <details class="rapport-replie">
@@ -291,8 +319,25 @@ document.getElementById('charger-exemple').addEventListener('click', async funct
     bloc.hidden = false;
   }
 
+  // Le nombre de lignes chargees, la ou on charge les URLs : sans ca, l'ecart entre
+  // « 25 lignes » et « 19 URLs uniques » reste une enigme.
+  var compteUrls = document.getElementById('compte-urls');
+  function compterLignes() {
+    if (!compteUrls) return;
+    var z = document.getElementById('urls');
+    var v = (z && z.value || '').trim();
+    var n = v ? v.split(/\r?\n/).filter(function (l) { return l.trim() && l.trim()[0] !== '#'; }).length : 0;
+    compteUrls.textContent = n ? n.toLocaleString('fr-FR') + ' ligne' + (n > 1 ? 's' : '') + ' chargée' + (n > 1 ? 's' : '') : '';
+  }
+  var zu = document.getElementById('urls');
+  if (zu) {
+    zu.addEventListener('input', compterLignes);
+    zu.addEventListener('change', compterLignes);
+    compterLignes();
+  }
+
   brancher('fichier-regles', 'regles', null);
-  brancher('fichier-urls', 'urls', detecterColonnes);
+  brancher('fichier-urls', 'urls', function (t) { detecterColonnes(t); compterLignes(); });
 
   // Coller un CSV a la main doit donner le meme confort que l'ouvrir.
   var zoneUrls = document.getElementById('urls');
@@ -326,7 +371,7 @@ document.getElementById('charger-exemple').addEventListener('click', async funct
     }
     var filtre = g || u || t;
     compte.textContent = filtre
-      ? vus + ' ligne(s) sur ' + lignes.length + ' dans l’aperçu'
+      ? 'Filtre actif : ' + vus + ' URLs sur les ' + lignes.length + ' affichées'
       : '';
   }
 
@@ -343,6 +388,15 @@ document.getElementById('charger-exemple').addEventListener('click', async funct
         ? 'Exporter ce filtre (CSV)'
         : 'Exporter le classement (CSV)';
     }
+  }
+
+  // Changer le panel demande un nouveau classement : seul le serveur a toutes les lignes.
+  // requestSubmit() sans bouton => sortie vaut « apercu » par defaut, pas « csv ».
+  var fp = document.getElementById('f-panel');
+  if (fp) {
+    fp.addEventListener('change', function () {
+      document.getElementById('form-classer').requestSubmit();
+    });
   }
 
   fg.addEventListener('change', function () { appliquer(); synchroniser(); });
@@ -380,6 +434,24 @@ document.getElementById('charger-exemple').addEventListener('click', async funct
     fg.value = ''; fu.value = ''; ft.value = ''; appliquer(); synchroniser();
   });
 
+  // Amene la barre de filtres en haut de la zone visible, pas le tableau : sinon on
+  // atterrit SOUS les listes deroulantes et sous l'en-tete des colonnes, donc trop bas.
+  // Le conteneur qui defile est le volet de droite quand il a sa propre hauteur, la
+  // fenetre sinon.
+  function amenerEnVue() {
+    var barre = document.querySelector('.filtres');
+    if (!barre) return;
+    var volet = document.querySelector('.volet-resultats');
+    var defilant = (volet && volet.scrollHeight > volet.clientHeight + 2) ? volet : null;
+    if (defilant) {
+      var delta = barre.getBoundingClientRect().top - defilant.getBoundingClientRect().top;
+      defilant.scrollTo({ top: defilant.scrollTop + delta - 12, behavior: 'smooth' });
+    } else {
+      var y = barre.getBoundingClientRect().top + window.scrollY - 12;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    }
+  }
+
   // Cliquer une ligne des tableaux de synthese pose le filtre correspondant.
   var synthese = document.querySelectorAll('table.cliquable tbody tr');
   for (var j = 0; j < synthese.length; j++) {
@@ -390,7 +462,7 @@ document.getElementById('charger-exemple').addEventListener('click', async funct
       autre.value = '';
       appliquer();
       synchroniser();
-      table.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      amenerEnVue();
     });
   }
 })();

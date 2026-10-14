@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import io
+import random
 import threading
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -24,6 +25,12 @@ from .config import settings
 _places = threading.Semaphore(settings.max_concurrent)
 
 COLONNES_CSV = ["url", "groupe", "univers", "nombre"]
+
+# Au-dela, le tableau devient ingerable pour le navigateur. On bascule alors sur un
+# echantillon par groupe, et on le DIT — plutot que de rogner en silence.
+APERCU_MAX = 3000
+
+PANELS = ("tout", "50", "10")
 
 
 class EntreeTropGrosse(Exception):
@@ -65,10 +72,11 @@ class Resultat:
     univers: list[Ligne] = field(default_factory=list)
     hotes_inconnus: list[str] = field(default_factory=list)
     groupes_sans_objet: list[str] = field(default_factory=list)
-    # Echantillon STRATIFIE : jusqu'a N URLs par couple groupe x univers, pour qu'un
-    # filtre sur un petit groupe montre quand meme ses URLs. Le CSV, lui, est complet.
     apercu: list[dict] = field(default_factory=list)
-    apercu_par_couple: int = 0
+    # Ce que l'utilisateur a demande, et ce qui a reellement ete applique. Les deux
+    # different quand « tout » depassait APERCU_MAX : il faut alors pouvoir le dire.
+    panel_demande: str = "tout"
+    panel_applique: str = "tout"
 
     @property
     def regles_sans_objet(self) -> int:
@@ -89,7 +97,7 @@ def classer(
     url_column: str | None = None,
     ignore_dom: bool = True,
     diagnose: bool = True,
-    apercu_par_couple: int = 120,
+    panel: str = "tout",
 ) -> Resultat:
     """Classe les URLs. Leve une exception du module en cas de refus, jamais de SystemExit."""
     if len(regles_texte.encode("utf-8")) > settings.max_rules_bytes:
@@ -116,7 +124,7 @@ def classer(
         out="(telechargement CSV)",
         html=None,
         panel=100,
-        panel_per_group=apercu_par_couple,
+        panel_per_group=0,
     )
 
     if not _places.acquire(blocking=False):
@@ -132,21 +140,8 @@ def classer(
     finally:
         _places.release()
 
-    # L'apercu sert a VERIFIER un groupe a l'oeil, pas a tout afficher. Deux contraintes :
-    # chaque couple groupe x univers doit rester represente (sinon un petit groupe disparait
-    # derriere un gros), et le tri par nombre doit rester honnete. On garde donc les N URLs
-    # LES PLUS VUES de chaque couple, pas un tirage aleatoire : trier par nombre un
-    # echantillon tire au hasard donnerait « les plus frequentes parmi celles qu'on a tirees »,
-    # ce qui n'est pas la meme chose. Quand toutes les occurrences valent 1 (export de crawl),
-    # cela degenere en une tranche deterministe, triee par URL.
-    paniers: dict[tuple[str, str], list[dict]] = {}
-    for ligne in rows:
-        paniers.setdefault((ligne["groupe"], ligne["univers"]), []).append(ligne)
-    apercu = []
-    for panier in paniers.values():
-        panier.sort(key=lambda r: (-r["nombre"], r["url"]))
-        apercu.extend(panier[:apercu_par_couple])
-    apercu.sort(key=lambda r: (r["groupe"], r["univers"], -r["nombre"], r["url"]))
+    demande = panel if panel in PANELS else "tout"
+    apercu, applique = _apercu(rows, demande)
 
     # Une regle qui ne gagne jamais n'apparait PAS dans stats : il faut comparer aux regles
     # declarees. Sans ca, le compteur restait a zero et l'encadre ne s'affichait jamais.
@@ -165,8 +160,43 @@ def classer(
         hotes_inconnus=sorted(hotes) if not ignore_dom else [],
         groupes_sans_objet=sans_objet,
         apercu=apercu,
-        apercu_par_couple=apercu_par_couple,
+        panel_demande=demande,
+        panel_applique=applique,
     )
+
+
+def _apercu(rows: list[dict], demande: str) -> tuple[list[dict], str]:
+    """Choisit ce qui est AFFICHE. Renvoie les lignes et ce qui a reellement ete applique.
+
+    « tout » est le defaut : sur un corpus courant, tout tient, et il n'y a alors aucune
+    notion d'echantillon a expliquer. Les pourcentages sont un tirage uniforme reproductible
+    (meme corpus, meme tirage). Le repli « par-groupe » ne sert que lorsque « tout »
+    depasserait APERCU_MAX : il garde les URLs les plus vues de chaque couple groupe x
+    univers, pour qu'aucun groupe ne disparaisse de l'ecran.
+    """
+    def ordonner(lignes: list[dict]) -> list[dict]:
+        return sorted(lignes, key=lambda r: (r["groupe"], r["univers"], -r["nombre"], r["url"]))
+
+    if demande in ("50", "10"):
+        garder = max(1, round(len(rows) * int(demande) / 100.0))
+        tirage = random.Random(1)
+        echantillon = tirage.sample(rows, min(garder, len(rows)))
+        if len(echantillon) <= APERCU_MAX:
+            return ordonner(echantillon), demande
+        rows = echantillon   # trop gros meme reduit : on retombe sur le filet ci-dessous
+
+    if len(rows) <= APERCU_MAX:
+        return ordonner(rows), "tout" if demande == "tout" else demande
+
+    paniers: dict[tuple[str, str], list[dict]] = {}
+    for ligne in rows:
+        paniers.setdefault((ligne["groupe"], ligne["univers"]), []).append(ligne)
+    par_couple = max(1, APERCU_MAX // max(1, len(paniers)))
+    retenues: list[dict] = []
+    for panier in paniers.values():
+        panier.sort(key=lambda r: (-r["nombre"], r["url"]))
+        retenues.extend(panier[:par_couple])
+    return ordonner(retenues), "par-groupe"
 
 
 def filtrer(rows: list[dict], groupe: str | None = None, univers: str | None = None) -> list[dict]:
